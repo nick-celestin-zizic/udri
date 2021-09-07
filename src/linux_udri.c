@@ -20,8 +20,8 @@
 #ifndef UDRI_RELEASE
 #define LADEF
 #endif
-#include "la.h"
-#include "la.c"
+#include "generated/udri_la.h"
+#include "generated/udri_la.c"
 
 // TODO make this not garbage
 const char *glx_read_file (const char *path) {

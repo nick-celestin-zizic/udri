@@ -32,7 +32,7 @@ void usage (FILE *out) {
 }
 
 void generate_code () {
-  CMD(CC, PATH("src", "generate_math_lib.c"), "-o", PATH("bin", "lagen"));
+  CMD(CC, PATH("src", "udri_generate_la.c"), "-o", PATH("bin", "lagen"));
   CMD(PATH("bin", "lagen"));
 }
 
