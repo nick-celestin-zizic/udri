@@ -20,11 +20,11 @@
 #ifndef UDRI_RELEASE
 #define LADEF
 #endif
-#include "generated/udri_la.h"
+//#include "generated/udri_la.h"
 #include "generated/udri_la.c"
 
 // TODO make this not garbage
-const char *glx_read_file (const char *path) {
+const char *linux_read_file (const char *path) {
   FILE *fd = fopen(path, "rb");
   if (!fd) {
     fprintf(stderr, "Could not open %s\n", path);
@@ -54,7 +54,7 @@ const char *glx_read_file (const char *path) {
 }
 
 
-void *glx_alloc(usize size_bytes) {
+void *linux_alloc(usize size_bytes) {
   void *out = mmap(NULL, size_bytes,
                    PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON,
                    -1, 0);
@@ -67,10 +67,8 @@ void *glx_alloc(usize size_bytes) {
   return out;
 }
 
-void glx_free(void *ptr, usize size_bytes) {
-  if (ptr) {
-    munmap(ptr, size_bytes);
-  }
+void linux_free(void *ptr, usize size_bytes) {
+  if (ptr) munmap(ptr, size_bytes);
 }
 
 // TODO want to use memory arena of some kind and not just mmap every time i need like 3 bytes
@@ -80,8 +78,8 @@ GLuint glx_create_shader_program (const char *vs_path, const char *fs_path) {
 	GLuint fragment_shader_id = glCreateShader(GL_FRAGMENT_SHADER);
 
   // Read the shader code from the file
-  const char *vertex_src = glx_read_file(vs_path);
-  const char *fragment_src = glx_read_file(fs_path);
+  const char *vertex_src = linux_read_file(vs_path);
+  const char *fragment_src = linux_read_file(fs_path);
 
   GLint result = GL_FALSE;
 	int info_log_length;
@@ -95,11 +93,11 @@ GLuint glx_create_shader_program (const char *vs_path, const char *fs_path) {
 	glGetShaderiv(vertex_shader_id, GL_INFO_LOG_LENGTH, &info_log_length);
   if (info_log_length > 0){
     usize error_msg_size_bytes = (info_log_length+1) * sizeof(char);
-    char *error_msg = (char *) glx_alloc(error_msg_size_bytes);
+    char *error_msg = (char *) linux_alloc(error_msg_size_bytes);
 
     glGetShaderInfoLog(vertex_shader_id, info_log_length, NULL, error_msg);
     printf("%s: %s\n", vs_path, error_msg);
-    glx_free((void *) error_msg, error_msg_size_bytes);
+    linux_free((void *) error_msg, error_msg_size_bytes);
     exit(1);
   }
 
@@ -112,43 +110,43 @@ GLuint glx_create_shader_program (const char *vs_path, const char *fs_path) {
 	glGetShaderiv(fragment_shader_id, GL_INFO_LOG_LENGTH, &info_log_length);
   if (info_log_length > 0){
     usize error_msg_size_bytes = (info_log_length+1) * sizeof(char);
-    char *error_msg = (char *) glx_alloc(error_msg_size_bytes);
+    char *error_msg = (char *) linux_alloc(error_msg_size_bytes);
 
     glGetShaderInfoLog(fragment_shader_id, info_log_length, NULL, error_msg);
     printf("%s: %s\n", fs_path, error_msg);
-    glx_free((void *) error_msg, error_msg_size_bytes);
+    linux_free((void *) error_msg, error_msg_size_bytes);
     exit(1);
   }
 
   // Link the program
-  GLuint ProgramID = glCreateProgram();
-	glAttachShader(ProgramID, vertex_shader_id);
-	glAttachShader(ProgramID, fragment_shader_id);
-	glLinkProgram(ProgramID);
+  GLuint program_id = glCreateProgram();
+	glAttachShader(program_id, vertex_shader_id);
+	glAttachShader(program_id, fragment_shader_id);
+	glLinkProgram(program_id);
 
   // Check the program
-  glGetShaderiv(ProgramID, GL_LINK_STATUS, &result);
-	glGetShaderiv(ProgramID, GL_INFO_LOG_LENGTH, &info_log_length);
+  glGetShaderiv(program_id, GL_LINK_STATUS, &result);
+	glGetShaderiv(program_id, GL_INFO_LOG_LENGTH, &info_log_length);
   if (info_log_length > 0){
     usize error_msg_size_bytes = (info_log_length+1) * sizeof(char);
-    char *error_msg = (char *) glx_alloc(error_msg_size_bytes);
+    char *error_msg = (char *) linux_alloc(error_msg_size_bytes);
 
-    glGetShaderInfoLog(ProgramID, info_log_length, NULL, error_msg);
+    glGetShaderInfoLog(program_id, info_log_length, NULL, error_msg);
     printf("Could not create shader program: %s\n", error_msg);
-    glx_free((void *) error_msg, error_msg_size_bytes);
+    linux_free((void *) error_msg, error_msg_size_bytes);
     exit(1);
   }
 
-  glDetachShader(ProgramID, vertex_shader_id);
-	glDetachShader(ProgramID, fragment_shader_id);
+  glDetachShader(program_id, vertex_shader_id);
+	glDetachShader(program_id, fragment_shader_id);
 	
 	glDeleteShader(vertex_shader_id);
 	glDeleteShader(fragment_shader_id);
   
-	return ProgramID;
+	return program_id;
 }
 
-void gl_do_rendering(u32 width, u32 height, vec2 pos) {
+void gl_do_rendering(u32 width, u32 height, u32 sprite_width, u32 sprite_height, vec2 pos) {
   glViewport(0, 0, width, height);
       
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -170,13 +168,10 @@ void gl_do_rendering(u32 width, u32 height, vec2 pos) {
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
   glTranslatef(pos.x, pos.y, 0);
-
-  f32 sprite_width = 150;
-  f32 sprite_height = 300;
   
   vec2 min_p = {{
-      (f32) width/2.0f  - sprite_width/2.0f,
-      (f32) height/2.0f - sprite_height/2.0f
+      (f32) width/2.0f  - (f32) sprite_width/2.0f,
+      (f32) height/2.0f - (f32) sprite_height/2.0f,
     }};
   
   vec2 max_p = {{
@@ -287,12 +282,23 @@ int main (int argc, char **argv) {
 
   struct timespec tp;
   clock_gettime(CLOCK_MONOTONIC, &tp);
-  f64 last_time = (f64) tp.tv_nsec / 1000000000.0;
+  u64 last_time = (u64) tp.tv_nsec;
+
+  const f32
+    speed = 300,
+    sprite_width = 100,
+    sprite_height = 150,
+    jump_height = 100,
+    jump_duration = 0.25,
+    jump_vel = (2.0 * jump_height) / jump_duration,
+    gravity = (-2.0 * jump_height) / (jump_duration * jump_duration);
+  const vec2 acc = make_vec2(0, gravity);
+  const u32 num_jumps = 3;
   
-  f64 dt = 0;
+  f32 dt = 0;
   vec2 pos = {0};
   vec2 vel = {0};
-  vec2 acc = {0};
+  u32 jumps = num_jumps;
   bool should_quit = false; 
   while (!should_quit) {
     while (XPending(display) > 0) {
@@ -305,24 +311,65 @@ int main (int argc, char **argv) {
         case 'q': {
           should_quit = true;
         } break;
+
+        case 'w': {
+          if (jumps) {
+            vel.y = jump_vel;
+            jumps--;
+          }
+        } break;
+
+        case 'a': {
+          vel.x = -speed;
+        } break;
+
+        case 'd': {
+          vel.x = speed;
+        } break;
+
+        case 's': {
+          vel.y = jump_vel * -2.0;
+        } break;
         }
       } break;
+      case KeyRelease: {
+        switch (XLookupKeysym((XKeyEvent *) &event, 0)) {
+        case 'a': {
+          if (vel.x < 0) vel.x = 0;
+        } break;
+          
+        case 'd': {
+          if (vel.x > 0) vel.x = 0;
+        } break;
+      } break;
+      }
       }
     }
 
     clock_gettime(CLOCK_MONOTONIC, &tp);
-    f64 current_time = (f64) tp.tv_nsec / 1000000000.0;
-    dt = current_time - last_time;
+    u64 current_time = (u64) tp.tv_nsec;
+    //TODO figure out why clock_gettime fucks up sometimes
+    if (current_time > last_time)
+      dt = (f32) (current_time - last_time) / 1000000000.0;
     last_time = current_time;
     
-    pos = vec2_add(vec2_mul_scalar(vel, dt),
-                   vec2_mul_scalar(vec2_div_scalar(acc, 2),
-                                   dt*dt));
-    
+    const vec2 new_pos = vec2_add(pos, vec2_add(vec2_mul_scalar(vel, dt),
+                                                vec2_mul_scalar(acc, 0.5*dt*dt)));
+    vel = vec2_add(vel, vec2_mul_scalar(acc, dt));
+
+    // TODO only get attributes when window is resized
     XWindowAttributes xwa;
     XGetWindowAttributes(display, win, &xwa);
     
-    gl_do_rendering(xwa.width, xwa.height, pos);
+    const f32 bottom = (f32)xwa.height*-0.5 + (f32)sprite_height*0.5;
+    if (new_pos.y < bottom) {
+      vel.y = 0;
+      pos.y = bottom;
+      pos.x = new_pos.x;
+      jumps = num_jumps;
+    } else pos = new_pos;
+    
+    gl_do_rendering(xwa.width, xwa.height, sprite_width, sprite_height, pos);
     
     glXSwapBuffers(display, win);
   }
