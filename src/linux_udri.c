@@ -20,8 +20,11 @@
 #ifndef UDRI_RELEASE
 #define LADEF
 #endif
-//#include "generated/udri_la.h"
 #include "generated/udri_la.c"
+
+//TODO write our own image loader bc this is making compile times too long
+#define STB_IMAGE_IMPLEMENTATION
+#include "../lib/stb_image.h"
 
 // TODO make this not garbage
 const char *linux_read_file (const char *path) {
@@ -146,8 +149,20 @@ GLuint glx_create_shader_program (const char *vs_path, const char *fs_path) {
 	return program_id;
 }
 
-void gl_do_rendering(u32 width, u32 height, u32 sprite_width, u32 sprite_height, vec2 pos) {
+void gl_do_rendering(u32 width, u32 height, u32 sprite_target_width, u32 sprite_target_height, vec2 pos,
+                     const u8 *sprite, u32 sprite_width, u32 sprite_height, GLuint texture_handle) {
   glViewport(0, 0, width, height);
+
+  glBindTexture(GL_TEXTURE_2D, texture_handle);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, sprite_width, sprite_height, 0, GL_RGB, GL_UNSIGNED_BYTE, sprite);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+  glEnable(GL_TEXTURE_2D);
       
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -164,44 +179,40 @@ void gl_do_rendering(u32 width, u32 height, u32 sprite_width, u32 sprite_height,
     -1, -1,  0,  1,
   };
   glLoadMatrixf(proj);
-
+  
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
   glTranslatef(pos.x, pos.y, 0);
   
   vec2 min_p = {{
-      (f32) width/2.0f  - (f32) sprite_width/2.0f,
-      (f32) height/2.0f - (f32) sprite_height/2.0f,
+      (f32) width/2.0f  - (f32) sprite_target_width/2.0f,
+      (f32) height/2.0f - (f32) sprite_target_height/2.0f,
     }};
   
   vec2 max_p = {{
-      min_p.x + sprite_width,
-      min_p.y + sprite_height
+      min_p.x + sprite_target_width,
+      min_p.y + sprite_target_height
     }};
 
   glBegin(GL_TRIANGLES);
-
-  glColor4f(1,1,0,1); // Lower Triangle
-      
-  glTexCoord2f(0.0, 0.0);
-  glVertex2fv(min_p.all);
-
-  glTexCoord2f(1.0, 0.0);
-  glVertex2f(max_p.x, min_p.y);
-
-  glTexCoord2f(1.0, 1.0);
-  glVertex2fv(max_p.all);
-
-      
-  glColor4f(1,0,0,1); // Upper Triangle
-
-  glTexCoord2f(0.0, 0.0);
-  glVertex2fv(min_p.all);
-
-  glTexCoord2f(1.0, 1.0);
-  glVertex2fv(max_p.all);
-
+  
   glTexCoord2f(0.0, 1.0);
+  glVertex2fv(min_p.all);
+  
+  glTexCoord2f(1.0, 1.0);
+  glVertex2f(max_p.x, min_p.y);
+  
+  glTexCoord2f(1.0, 0.0);
+  glVertex2fv(max_p.all);
+
+  
+  glTexCoord2f(0.0, 1.0);
+  glVertex2fv(min_p.all);
+  
+  glTexCoord2f(1.0, 0.0);
+  glVertex2fv(max_p.all);
+  
+  glTexCoord2f(0.0, 0.0);
   glVertex2f(min_p.x, max_p.y);
       
   glEnd();
@@ -284,10 +295,21 @@ int main (int argc, char **argv) {
   clock_gettime(CLOCK_MONOTONIC, &tp);
   u64 last_time = (u64) tp.tv_nsec;
 
+  int sprite_width, sprite_height, channels;
+  const u8 *player_sprite = stbi_load("./res/guy.bmp", &sprite_width, &sprite_height, &channels, 0);
+  if (!player_sprite) {
+    fprintf(stderr, "could not load sprite: %s\n", strerror(errno));
+    exit(1);
+  }
+  GLuint player_sprite_gl_handle = 0;
+  glGenTextures(1, &player_sprite_gl_handle);
+
+  //printf("w = %d, h = %d, ch = %d\n", width, height, channels);
+  
   const f32
     speed = 300,
-    sprite_width = 100,
-    sprite_height = 150,
+    player_width = 100,
+    player_height = 150,
     jump_height = 100,
     jump_duration = 0.25,
     jump_vel = (2.0 * jump_height) / jump_duration,
@@ -361,7 +383,7 @@ int main (int argc, char **argv) {
     XWindowAttributes xwa;
     XGetWindowAttributes(display, win, &xwa);
     
-    const f32 bottom = (f32)xwa.height*-0.5 + (f32)sprite_height*0.5;
+    const f32 bottom = (f32)xwa.height*-0.5 + (f32)player_height*0.5;
     if (new_pos.y < bottom) {
       vel.y = 0;
       pos.y = bottom;
@@ -369,7 +391,7 @@ int main (int argc, char **argv) {
       jumps = num_jumps;
     } else pos = new_pos;
     
-    gl_do_rendering(xwa.width, xwa.height, sprite_width, sprite_height, pos);
+    gl_do_rendering(xwa.width, xwa.height, player_width, player_height, pos, player_sprite, sprite_width, sprite_height, player_sprite_gl_handle);
     
     glXSwapBuffers(display, win);
   }
