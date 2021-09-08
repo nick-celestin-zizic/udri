@@ -7593,6 +7593,7 @@ static int stbi__is_16_main(stbi__context *s)
    #ifndef STBI_NO_PNM
    if (stbi__pnm_is16(s))  return 1;
    #endif
+   (void) s;
    return 0;
 }
 

@@ -22,8 +22,17 @@
 #endif
 #include "generated/udri_la.c"
 
-//TODO write our own image loader bc this is making compile times too long
+//TODO write our own image loader
 #define STB_IMAGE_IMPLEMENTATION
+#define STBI_NO_JPEG
+#define STBI_NO_PNG
+//#define STBI_NO_BMP
+#define STBI_NO_PSD
+#define STBI_NO_TGA
+#define STBI_NO_GIF
+#define STBI_NO_HDR
+#define STBI_NO_PIC
+#define STBI_NO_PNM
 #include "../lib/stb_image.h"
 
 // TODO make this not garbage
@@ -75,7 +84,7 @@ void linux_free(void *ptr, usize size_bytes) {
 }
 
 // TODO want to use memory arena of some kind and not just mmap every time i need like 3 bytes
-GLuint glx_create_shader_program (const char *vs_path, const char *fs_path) {
+GLuint opengl_create_shader_program (const char *vs_path, const char *fs_path) {
   // Create the shaders
 	GLuint vertex_shader_id = glCreateShader(GL_VERTEX_SHADER);
 	GLuint fragment_shader_id = glCreateShader(GL_FRAGMENT_SHADER);
@@ -149,9 +158,8 @@ GLuint glx_create_shader_program (const char *vs_path, const char *fs_path) {
 	return program_id;
 }
 
-void gl_do_rendering(u32 width, u32 height, u32 sprite_target_width, u32 sprite_target_height, vec2 pos,
-                     const u8 *sprite, u32 sprite_width, u32 sprite_height, GLuint texture_handle) {
-  glViewport(0, 0, width, height);
+void gl_render_sprite(u32 screen_width, u32 screen_height, u32 sprite_target_width, u32 sprite_target_height, vec2 pos,
+                      const u8 *sprite, u32 sprite_width, u32 sprite_height, GLuint texture_handle) {
 
   glBindTexture(GL_TEXTURE_2D, texture_handle);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, sprite_width, sprite_height, 0, GL_RGB, GL_UNSIGNED_BYTE, sprite);
@@ -163,15 +171,13 @@ void gl_do_rendering(u32 width, u32 height, u32 sprite_target_width, u32 sprite_
   glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
   glEnable(GL_TEXTURE_2D);
-      
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   glMatrixMode(GL_TEXTURE);
   glLoadIdentity();
 
   glMatrixMode(GL_PROJECTION);
-  const f32 a = 2.0f / (f32) width;
-  const f32 b = 2.0f / (f32) height;
+  const f32 a = 2.0f / (f32) screen_width;
+  const f32 b = 2.0f / (f32) screen_height;
   f32 proj[] = {
      a,  0,  0,  0,
      0,  b,  0,  0,
@@ -185,15 +191,15 @@ void gl_do_rendering(u32 width, u32 height, u32 sprite_target_width, u32 sprite_
   glTranslatef(pos.x, pos.y, 0);
   
   vec2 min_p = {{
-      (f32) width/2.0f  - (f32) sprite_target_width/2.0f,
-      (f32) height/2.0f - (f32) sprite_target_height/2.0f,
+      (f32) screen_width/2.0f  - (f32) sprite_target_width/2.0f,
+      (f32) screen_height/2.0f - (f32) sprite_target_height/2.0f,
     }};
   
   vec2 max_p = {{
       min_p.x + sprite_target_width,
       min_p.y + sprite_target_height
     }};
-
+  
   glBegin(GL_TRIANGLES);
   
   glTexCoord2f(0.0, 1.0);
@@ -214,7 +220,7 @@ void gl_do_rendering(u32 width, u32 height, u32 sprite_target_width, u32 sprite_
   
   glTexCoord2f(0.0, 0.0);
   glVertex2f(min_p.x, max_p.y);
-      
+  
   glEnd();
 }
 
@@ -273,8 +279,7 @@ int main (int argc, char **argv) {
     exit(1);
   }
 
-
-  //GLuint program = glx_create_shader_program("./src/shaders/default.vs", "./src/shaders/default.fs");
+  //GLuint program = opengl_create_shader_program("./src/shaders/default.vs", "./src/shaders/default.fs");
   /*
   const GLfloat vertices[] = {
     -0.5, -0.5, 0.0, 1.0, // first triangle
@@ -304,7 +309,7 @@ int main (int argc, char **argv) {
   GLuint player_sprite_gl_handle = 0;
   glGenTextures(1, &player_sprite_gl_handle);
 
-  //printf("w = %d, h = %d, ch = %d\n", width, height, channels);
+  //printf("w = %d, h = %d, ch = %d\n", width, screen_height, channels);
   
   const f32
     speed = 300,
@@ -316,7 +321,14 @@ int main (int argc, char **argv) {
     gravity = (-2.0 * jump_height) / (jump_duration * jump_duration);
   const vec2 acc = make_vec2(0, gravity);
   const u32 num_jumps = 3;
-  
+
+  u64
+    screen_width = 1920,
+    screen_height = 1080;
+  i64
+    screen_x_origin = 0,
+    screen_y_origin = 0;
+  f32 aspect_ratio = 16.0/9.0;
   f32 dt = 0;
   vec2 pos = {0};
   vec2 vel = {0};
@@ -354,6 +366,7 @@ int main (int argc, char **argv) {
         } break;
         }
       } break;
+        
       case KeyRelease: {
         switch (XLookupKeysym((XKeyEvent *) &event, 0)) {
         case 'a': {
@@ -365,6 +378,19 @@ int main (int argc, char **argv) {
         } break;
       } break;
       }
+
+      case ConfigureNotify: {
+        const usize
+          old_w = screen_width,
+          new_w = event.xconfigure.width,
+          new_h = event.xconfigure.height;
+
+        if (new_w != old_w) {
+          screen_width = new_w;
+          screen_height = new_w / aspect_ratio;
+          screen_y_origin = (i64) (((f64) new_h - (f64) screen_height) * 0.5);
+        }
+      } break;
       }
     }
 
@@ -378,20 +404,21 @@ int main (int argc, char **argv) {
     const vec2 new_pos = vec2_add(pos, vec2_add(vec2_mul_scalar(vel, dt),
                                                 vec2_mul_scalar(acc, 0.5*dt*dt)));
     vel = vec2_add(vel, vec2_mul_scalar(acc, dt));
-
-    // TODO only get attributes when window is resized
-    XWindowAttributes xwa;
-    XGetWindowAttributes(display, win, &xwa);
     
-    const f32 bottom = (f32)xwa.height*-0.5 + (f32)player_height*0.5;
+    const f32 bottom = (f32)screen_height*-0.5 + (f32)player_height*0.5;
     if (new_pos.y < bottom) {
       vel.y = 0;
       pos.y = bottom;
       pos.x = new_pos.x;
       jumps = num_jumps;
     } else pos = new_pos;
-    
-    gl_do_rendering(xwa.width, xwa.height, player_width, player_height, pos, player_sprite, sprite_width, sprite_height, player_sprite_gl_handle);
+
+    //glClearColor(0.5, 0.9, 0.5, 1.0);
+    glViewport(screen_x_origin, screen_y_origin, screen_width, screen_height);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearColor(0.5, 0.5, 0.5, 1.0);
+    //gl_render_sprite(screen_width, screen_height, screen_width, screen_height, make_vec2_scalar(0.0), NULL, sprite_width, sprite_height, 100);
+    gl_render_sprite(screen_width, screen_height, player_width, player_height, pos, player_sprite, sprite_width, sprite_height, player_sprite_gl_handle);
     
     glXSwapBuffers(display, win);
   }
