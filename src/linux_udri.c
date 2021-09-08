@@ -413,10 +413,22 @@ int main (int argc, char **argv) {
       jumps = num_jumps;
     } else pos = new_pos;
 
-    //glClearColor(0.5, 0.9, 0.5, 1.0);
-    glViewport(screen_x_origin, screen_y_origin, screen_width, screen_height);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    XWindowAttributes xwa;
+    XGetWindowAttributes(display, win, &xwa);
+    
+    //glViewport(0, 0, xwa.width, xwa.height);
     glClearColor(0.5, 0.5, 0.5, 1.0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glScissor(screen_x_origin, screen_y_origin, screen_width, screen_height);
+    glEnable(GL_SCISSOR_TEST);
+    glClearColor(0.0, 0.0, 0.0, 1.0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glDisable(GL_SCISSOR_TEST);
+    
+    glViewport(screen_x_origin, screen_y_origin, screen_width, screen_height);
+
+    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     //gl_render_sprite(screen_width, screen_height, screen_width, screen_height, make_vec2_scalar(0.0), NULL, sprite_width, sprite_height, 100);
     gl_render_sprite(screen_width, screen_height, player_width, player_height, pos, player_sprite, sprite_width, sprite_height, player_sprite_gl_handle);
     
