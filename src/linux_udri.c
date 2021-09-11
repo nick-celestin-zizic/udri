@@ -158,6 +158,7 @@ GLuint opengl_create_shader_program (const char *vs_path, const char *fs_path) {
 }
 
 // TODO write our own bmp loader and maybe don't do the gl stuff idk
+// TODO eventually we'll (why am I saying we its just me???) load a bunch of bitmaps at once and we can group the glGenTexture calls
 Bitmap DEBUG_gl_load_bitmap(const char *path) {
   Bitmap bmp = {0};
   
@@ -173,9 +174,8 @@ Bitmap DEBUG_gl_load_bitmap(const char *path) {
   return bmp;
 }
 
-// TODO clean this up
-void gl_render_bitmap(Bitmap bmp, u32 target_width, u32 target_height, vec2 position, f32 layer, bool flip_x) {
-  
+// TODO clean this up, also eventually use vbo to render all bmps at once instead of the stupid fli_x and translatef stuff
+void gl_render_bitmap(Bitmap bmp, f32 target_width, f32 target_height, vec2 position, f32 layer, bool flip_x) {
   glBindTexture(GL_TEXTURE_2D, bmp.gl_id);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, bmp.width, bmp.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, bmp.data);
   
@@ -191,8 +191,8 @@ void gl_render_bitmap(Bitmap bmp, u32 target_width, u32 target_height, vec2 posi
   glLoadIdentity();
 
   glMatrixMode(GL_PROJECTION);
-  const f32 a = 2.0f / (f32) ASPECT_WIDTH;
-  const f32 b = 2.0f / (f32) ASPECT_HEIGHT;
+  const f32 a = 2.0f / ASPECT_WIDTH;
+  const f32 b = 2.0f / ASPECT_HEIGHT;
   f32 proj[] = {
      a,  0,  0,  0,
      0,  b,  0,  0,
@@ -206,8 +206,8 @@ void gl_render_bitmap(Bitmap bmp, u32 target_width, u32 target_height, vec2 posi
   glTranslatef(position.x, position.y, layer);
   
   const vec2
-    min_p = v2((f32) ASPECT_WIDTH/2.0f  - (f32) target_width/2.0f,
-               (f32) ASPECT_HEIGHT/2.0f - (f32) target_height/2.0f),
+    min_p = v2(ASPECT_WIDTH/2.0f  - target_width/2.0f,
+               ASPECT_HEIGHT/2.0f - target_height/2.0f),
     max_p = v2(min_p.x + target_width,
                min_p.y + target_height);
 
@@ -309,14 +309,14 @@ int main (int argc, char **argv) {
   */
 
   // initialize game memory stuff
-  /*
+  /* TODO vertex buffer stuff
   LinuxVertexBuffer vertex_buffer;
   vertex_buffer.size_bytes = 0;
   vertex_buffer.current = 0;
   vertex_buffer.num_vertices = 0;
   vertex_buffer.max_vertices = 0;
   */
-
+  
   struct timespec tp;
   clock_gettime(CLOCK_MONOTONIC, &tp);
   u64 last_time = (u64) tp.tv_nsec;
