@@ -1,9 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+//#include <stdio.h>
+//#include <stdlib.h>
+//#include <string.h>
 #include <errno.h>
 #include <stdbool.h>
-#include <math.h>
 
 #include <sys/mman.h>
 #include <time.h>
@@ -25,7 +24,7 @@
 //TODO write our own image loader
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_NO_JPEG
-//#define STBI_NO_PNG
+#define STBI_NO_PNG
 //#define STBI_NO_BMP
 #define STBI_NO_PSD
 #define STBI_NO_TGA
@@ -158,13 +157,27 @@ GLuint opengl_create_shader_program (const char *vs_path, const char *fs_path) {
 	return program_id;
 }
 
-void gl_render_sprite(u32 sprite_target_width, u32 sprite_target_height,
-                      vec2 pos, const u8 *sprite,
-                      u32 sprite_width, u32 sprite_height,
-                      GLuint texture_handle, bool flip_x) {
+// TODO write our own bmp loader and maybe don't do the gl stuff idk
+Bitmap DEBUG_gl_load_bitmap(const char *path) {
+  Bitmap bmp = {0};
   
-  glBindTexture(GL_TEXTURE_2D, texture_handle);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, sprite_width, sprite_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, sprite);
+  bmp.data = stbi_load(path, (i32 *) &bmp.width, (i32 *) &bmp.height,
+                             NULL, STBI_rgb_alpha);
+  if (!bmp.data) {
+    fprintf(stderr, "could not load sprite: %s\n", strerror(errno));
+    exit(1);
+  }
+
+  glGenTextures(1, &bmp.gl_id);
+  
+  return bmp;
+}
+
+// TODO clean this up
+void gl_render_bitmap(Bitmap bmp, u32 target_width, u32 target_height, vec2 position, f32 layer, bool flip_x) {
+  
+  glBindTexture(GL_TEXTURE_2D, bmp.gl_id);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, bmp.width, bmp.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, bmp.data);
   
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -190,31 +203,19 @@ void gl_render_sprite(u32 sprite_target_width, u32 sprite_target_height,
   
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
-  glTranslatef(pos.x, pos.y, 0);
+  glTranslatef(position.x, position.y, layer);
   
-  vec2 min_p = {{
-      (f32) ASPECT_WIDTH/2.0f  - (f32) sprite_target_width/2.0f,
-      (f32) ASPECT_HEIGHT/2.0f - (f32) sprite_target_height/2.0f,
-    }};
-  
-  vec2 max_p = {{
-      min_p.x + sprite_target_width,
-      min_p.y + sprite_target_height
-    }};
-  
-  glBegin(GL_TRIANGLES);
-
-  glEnable(GL_BLEND);// you enable blending function
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glDepthMask(GL_TRUE);
+  const vec2
+    min_p = v2((f32) ASPECT_WIDTH/2.0f  - (f32) target_width/2.0f,
+               (f32) ASPECT_HEIGHT/2.0f - (f32) target_height/2.0f),
+    max_p = v2(min_p.x + target_width,
+               min_p.y + target_height);
 
   const f32
     tex_min_x = flip_x ? 1.0 : 0.0,
     tex_max_x = flip_x ? 0.0 : 1.0;
-
   
-
-  //glColor4f(0.0, 0.0, 0.0, 0.0);
+  glBegin(GL_TRIANGLES);
   
   glTexCoord2f(tex_min_x, 1.0);
   glVertex2fv(min_p.all);
@@ -234,7 +235,7 @@ void gl_render_sprite(u32 sprite_target_width, u32 sprite_target_height,
   
   glTexCoord2f(tex_min_x, 0.0);
   glVertex2f(min_p.x, max_p.y);
-  glDisable(GL_BLEND);
+  
   glEnd();
 }
 
@@ -283,10 +284,6 @@ int main (int argc, char **argv) {
   XStoreName(display, win, WINDOW_NAME);
   glXMakeCurrent(display, win, glc);
   
-  glEnable(GL_DEPTH_TEST);
-  glEnable(GL_ALPHA_TEST);
-  glAlphaFunc(GL_GREATER, 0.0f);
-  
   GLenum err = glewInit();
   if (err != GLEW_OK) {
     fprintf(stderr, "could not initialize glew: %s\n",
@@ -323,28 +320,15 @@ int main (int argc, char **argv) {
   struct timespec tp;
   clock_gettime(CLOCK_MONOTONIC, &tp);
   u64 last_time = (u64) tp.tv_nsec;
-
+  
+  glEnable(GL_DEPTH_TEST);
+  glEnable(GL_ALPHA_TEST);
+  glAlphaFunc(GL_GREATER, 0.0f);
 
   // TODO unhardcode this stuff
-  //player
-  int sprite_width, sprite_height, channels;
-  const u8 *player_sprite = stbi_load("./res/guy.bmp", &sprite_width, &sprite_height, &channels, STBI_rgb_alpha);
-  if (!player_sprite) {
-    fprintf(stderr, "could not load sprite: %s\n", strerror(errno));
-    exit(1);
-  }
-  GLuint player_sprite_gl_handle = 0;
-  glGenTextures(1, &player_sprite_gl_handle);
-
-  //background
-  int bg_sprite_width, bg_sprite_height, bg_channels;
-  const u8 *bg_sprite = stbi_load("./res/bg.bmp", &bg_sprite_width, &bg_sprite_height, &bg_channels, STBI_rgb_alpha);
-  if (!bg_sprite) {
-    fprintf(stderr, "could not load sprite: %s\n", strerror(errno));
-    exit(1);
-  }
-  GLuint bg_sprite_gl_handle = 1;
-  glGenTextures(1, &bg_sprite_gl_handle);
+  Bitmap
+    player_bmp     = DEBUG_gl_load_bitmap("./res/guy.bmp"),
+    background_bmp = DEBUG_gl_load_bitmap("./res/bg.bmp");
   
   const f32
     player_speed  = 5,
@@ -355,7 +339,7 @@ int main (int argc, char **argv) {
     jump_vel      = (2.0 * jump_height) / jump_duration,
     jump_gravity  = (-2.0 * jump_height) / (jump_duration * jump_duration);
   
-  const vec2 acc = make_vec2(0, jump_gravity);
+  const vec2 acc = v2(0, jump_gravity);
   const u32 num_jumps = 3;
   const u32 num_dashes = 1;
   
@@ -366,7 +350,7 @@ int main (int argc, char **argv) {
     screen_y_origin = 0;
   
   f32 dt = 0;
-  vec2 pos = {0};
+  vec2 player_pos = {0};
   vec2 vel = {0};
   u32 jumps = num_jumps;
   u32 dashes = num_dashes;
@@ -379,7 +363,7 @@ int main (int argc, char **argv) {
 
       switch (event.type) {
       case KeyPress: {
-        switch (keybinds[event.xkey.keycode]) {
+        switch (linux_keybinds[event.xkey.keycode]) {
         case UDRI_BUTTON_START: {
           should_quit = true;
         } break;
@@ -421,7 +405,7 @@ int main (int argc, char **argv) {
       } break;
         
       case KeyRelease: {
-        switch (keybinds[event.xkey.keycode]) {
+        switch (linux_keybinds[event.xkey.keycode]) {
         case UDRI_BUTTON_LEFT: {
           if (vel.x < 0) vel.x = 0;
         } break;
@@ -464,33 +448,33 @@ int main (int argc, char **argv) {
     // platform indepentent stuff
     {
       // update
-      const vec2 new_pos = vec2_add(pos, vec2_add(vec2_mul_scalar(vel, dt), vec2_mul_scalar(acc, 0.5*dt*dt)));
+      const vec2 new_pos = vec2_add(player_pos, vec2_add(vec2_mul_scalar(vel, dt), vec2_mul_scalar(acc, 0.5*dt*dt)));
       vel = vec2_add(vel, vec2_mul_scalar(acc, dt));
 
       // TODO actual collision detection
       const f32 bottom = (-ASPECT_HEIGHT + player_height) * 0.5;
       if (new_pos.y < bottom) {
         vel.y = 0;
-        pos.y = bottom;
-        pos.x = new_pos.x;
+        player_pos.y = bottom;
+        player_pos.x = new_pos.x;
         jumps = num_jumps;
         dashes = num_dashes;
-      } else pos = new_pos;
-
+      } else player_pos = new_pos;
+      
       // render
-      glClearColor(0.5, 0.5, 0.5, 1.0);
+      const vec4 border_color = v4(0.0f, 0.0f, 0.0f, 1.0);
+      glClearColor(border_color.r, border_color.g, border_color.b, border_color.a);
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-      glScissor(screen_x_origin, screen_y_origin, screen_width, screen_height);
-      glEnable(GL_SCISSOR_TEST);
-      glClearColor(0.0, 0.0, 0.0, 0.0);
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-      glDisable(GL_SCISSOR_TEST);
-    
       glViewport(screen_x_origin, screen_y_origin, screen_width, screen_height);
-      gl_render_sprite(player_width, player_height, pos, player_sprite, sprite_width, sprite_height, player_sprite_gl_handle, turned_left);
-      const vec2 bg_pos = make_vec2_scalar(0.0f);
-      gl_render_sprite(ASPECT_WIDTH, ASPECT_HEIGHT, bg_pos, bg_sprite, bg_sprite_width, bg_sprite_height, bg_sprite_gl_handle, false);
+
+      // TODO add a vX_zero and maybe make_vecX_one
+      // TODO add names to the layers or think of something smarter
+      gl_render_bitmap(background_bmp,
+                       ASPECT_WIDTH, ASPECT_HEIGHT,
+                       v2_scalar(0.0f), 0.99f, false);
+      gl_render_bitmap(player_bmp,
+                       player_width, player_height,
+                       player_pos, 0.0f, turned_left);
     }
     
     glXSwapBuffers(display, win);
