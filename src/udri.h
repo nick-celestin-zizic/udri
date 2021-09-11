@@ -40,6 +40,8 @@ typedef u16 button_mask;
 #define UDRI_BUTTON_C_UP    0x2000
 #define UDRI_BUTTON_C_LEFT  0x4000
 #define UDRI_BUTTON_C_DOWN  0x8000
+#define UDRI_BUTTON_NONE    0x0000
+#define UDRI_BUTTON_ALL     0xffff
 
 typedef struct {
   const u8 *data;

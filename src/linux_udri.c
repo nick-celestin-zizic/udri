@@ -239,10 +239,7 @@ void gl_render_bitmap(Bitmap bmp, f32 target_width, f32 target_height, vec2 posi
   glEnd();
 }
 
-int main (int argc, char **argv) {
-  (void) argc;
-  (void) argv;
-
+int main (void) {
   Display *display = XOpenDisplay(NULL);
   if (display == NULL) {
     fprintf(stderr, "cannot connect to X server: %s\n", strerror(errno));
@@ -290,32 +287,10 @@ int main (int argc, char **argv) {
             glewGetErrorString(err));
     exit(1);
   }
-  
-  //GLuint program = opengl_create_shader_program("./src/shaders/default.vs", "./src/shaders/default.fs");
-  /*
-  const GLfloat vertices[] = {
-    -0.5, -0.5, 0.0, 1.0, // first triangle
-    -0.5, +0.5, 0.0, 1.0,
-    +0.5, +0.5, 0.0, 1.0,
-    +0.5, +0.5, 0.0, 1.0, // second triangle
-    +0.5, -0.5, 0.0, 1.0,
-    -0.5, -0.5, 0.0, 1.0,
-	};
 
-  GLuint vertex_buffer;
-	glGenBuffers(1, &vertex_buffer);
-	glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-  */
-
-  // initialize game memory stuff
-  /* TODO vertex buffer stuff
-  LinuxVertexBuffer vertex_buffer;
-  vertex_buffer.size_bytes = 0;
-  vertex_buffer.current = 0;
-  vertex_buffer.num_vertices = 0;
-  vertex_buffer.max_vertices = 0;
-  */
+  button_mask input_held     = UDRI_BUTTON_NONE;
+  button_mask input_pressed  = UDRI_BUTTON_NONE;
+  button_mask input_released = UDRI_BUTTON_NONE;
   
   struct timespec tp;
   clock_gettime(CLOCK_MONOTONIC, &tp);
@@ -357,64 +332,27 @@ int main (int argc, char **argv) {
   bool should_quit = false;
   bool turned_left = false;
   while (!should_quit) {
+    input_released = UDRI_BUTTON_NONE;
+    input_pressed  = UDRI_BUTTON_NONE;
+    
     while (XPending(display) > 0) {
       XEvent event = {0};
       XNextEvent(display, &event);
-
+      
       switch (event.type) {
       case KeyPress: {
-        switch (linux_keybinds[event.xkey.keycode]) {
-        case UDRI_BUTTON_START: {
-          should_quit = true;
-        } break;
-
-        case UDRI_BUTTON_UP: {
-          if (jumps) {
-            vel.y = jump_vel;
-            jumps--;
-          }
-        } break;
-
-        case UDRI_BUTTON_LEFT: {
-          turned_left = true;
-          vel.x = -player_speed;
-        } break;
-
-        case UDRI_BUTTON_RIGHT: {
-          turned_left = false;
-          vel.x = player_speed;
-        } break;
-
-        case UDRI_BUTTON_DOWN: {
-          vel.y = -jump_vel;
-          jumps = 0;
-        } break;
-
-        case UDRI_BUTTON_L: {
-          if (dashes) {
-            vel = vec2_mul_scalar(vel, 2);
-            dashes--;
-          }
-        } break;
-
-        default: {
-          //printf("%d\n", event.xkey.keycode);
-        } break;
-          
-        }
+        const button_mask btn = linux_keybinds[event.xkey.keycode];
+        input_pressed  |= btn;
+        input_held     |= btn;
+        input_released &= ~btn;
       } break;
         
       case KeyRelease: {
-        switch (linux_keybinds[event.xkey.keycode]) {
-        case UDRI_BUTTON_LEFT: {
-          if (vel.x < 0) vel.x = 0;
-        } break;
-          
-        case UDRI_BUTTON_RIGHT: {
-          if (vel.x > 0) vel.x = 0;
-        } break;
+        const button_mask btn = linux_keybinds[event.xkey.keycode];
+        input_released |= btn;
+        input_pressed  &= ~btn;
+        input_held     &= ~btn;
       } break;
-      }
 
       case ConfigureNotify: {
         const usize
@@ -443,22 +381,72 @@ int main (int argc, char **argv) {
     //TODO figure out why clock_gettime fucks up sometimes
     if (current_time > last_time)
       dt = (f32) (current_time - last_time) / 1000000000.0;
+    //printf("%f\n", dt);
     last_time = current_time;
     
     // platform indepentent stuff
     {
+      // proccess input
+      if (input_pressed & UDRI_BUTTON_START)
+        should_quit = true;
+      
+      if (input_pressed & UDRI_BUTTON_X) {
+        if (jumps) {
+          vel.y = jump_vel;
+          jumps--;
+        }
+      }
+
+      if (input_pressed & UDRI_BUTTON_LEFT) {
+        turned_left = true;
+        vel.x = -player_speed;
+      }
+
+      if (input_pressed & UDRI_BUTTON_RIGHT) {
+        turned_left = false;
+        vel.x = player_speed;
+      }
+
+      if (input_pressed & UDRI_BUTTON_DOWN) {
+        vel.y = -jump_vel;
+        jumps = 0;
+      }
+
+      if (input_pressed & UDRI_BUTTON_L) {
+        if (dashes) {
+          vel = vec2_mul_scalar(vel, 2);
+          dashes--;
+        }
+      }
+      
+      if (input_released & UDRI_BUTTON_LEFT) {
+        if (vel.x < 0) vel.x = 0;
+      }
+      
+      if (input_released & UDRI_BUTTON_RIGHT) {
+        if (vel.x > 0) vel.x = 0;
+      }
+      
       // update
       const vec2 new_pos = vec2_add(player_pos, vec2_add(vec2_mul_scalar(vel, dt), vec2_mul_scalar(acc, 0.5*dt*dt)));
       vel = vec2_add(vel, vec2_mul_scalar(acc, dt));
 
       // TODO actual collision detection
-      const f32 bottom = (-ASPECT_HEIGHT + player_height) * 0.5;
+      const f32 bottom = (player_height - ASPECT_HEIGHT) * 0.5;
       if (new_pos.y < bottom) {
         vel.y = 0;
         player_pos.y = bottom;
         player_pos.x = new_pos.x;
         jumps = num_jumps;
         dashes = num_dashes;
+        
+        // probably don't want to do this but we'll see its funny
+        if (input_held & UDRI_BUTTON_X) {
+          if (jumps) {
+            vel.y = jump_vel;
+            jumps--;
+          }
+        }
       } else player_pos = new_pos;
       
       // render
