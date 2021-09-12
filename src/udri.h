@@ -1,5 +1,8 @@
+#include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+
+#include "./generated/udri_la.h"
 
 typedef char byte;
 
@@ -43,8 +46,28 @@ typedef u16 button_mask;
 #define UDRI_BUTTON_NONE    0x0000
 #define UDRI_BUTTON_ALL     0xffff
 
+#define HAS_ONLY_ONE_SET_BIT(b) (b && !(btn & (btn - 1)))
+
 typedef struct {
   const u8 *data;
   u32 width, height;
-  u32 gl_id;
 } Bitmap;
+
+typedef struct {
+  const Bitmap *bmp;
+  u32 gl_id;
+} RenderTarget; // TODO think of a better name and maybe reduntant
+
+// NOTE obviously temporary
+typedef struct {
+  vec2 pos;
+  u32 width, height;
+  RenderTarget render;
+} Orb;
+
+typedef struct {
+  vec2 pos, vel;
+  u32 jumps, dashes;
+  bool turned_left;
+  RenderTarget render;
+} Player;

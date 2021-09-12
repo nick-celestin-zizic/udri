@@ -16,9 +16,9 @@
 
 #include "linux_udri.h"
 
-#ifndef UDRI_RELEASE
-#define LADEF
-#endif
+//#ifndef UDRI_RELEASE
+//#define LADEF
+//#endif
 #include "generated/udri_la.c"
 
 //TODO write our own image loader
@@ -158,8 +158,7 @@ GLuint opengl_create_shader_program (const char *vs_path, const char *fs_path) {
 }
 
 // TODO write our own bmp loader and maybe don't do the gl stuff idk
-// TODO eventually we'll (why am I saying we its just me???) load a bunch of bitmaps at once and we can group the glGenTexture calls
-Bitmap DEBUG_gl_load_bitmap(const char *path) {
+Bitmap DEBUG_load_bitmap(const char *path) {
   Bitmap bmp = {0};
   
   bmp.data = stbi_load(path, (i32 *) &bmp.width, (i32 *) &bmp.height,
@@ -168,16 +167,15 @@ Bitmap DEBUG_gl_load_bitmap(const char *path) {
     fprintf(stderr, "could not load sprite: %s\n", strerror(errno));
     exit(1);
   }
-
-  glGenTextures(1, &bmp.gl_id);
   
   return bmp;
 }
 
 // TODO clean this up, also eventually use vbo to render all bmps at once instead of the stupid fli_x and translatef stuff
-void gl_render_bitmap(Bitmap bmp, f32 target_width, f32 target_height, vec2 position, f32 layer, bool flip_x) {
-  glBindTexture(GL_TEXTURE_2D, bmp.gl_id);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, bmp.width, bmp.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, bmp.data);
+void gl_render_bitmap(RenderTarget rt, f32 target_width, f32 target_height, vec2 position, f32 layer, bool flip_x) {
+  const Bitmap *bmp = rt.bmp;
+  glBindTexture(GL_TEXTURE_2D, rt.gl_id);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, bmp->width, bmp->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, bmp->data);
   
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -302,8 +300,33 @@ int main (void) {
 
   // TODO unhardcode this stuff
   Bitmap
-    player_bmp     = DEBUG_gl_load_bitmap("./res/guy.bmp"),
-    background_bmp = DEBUG_gl_load_bitmap("./res/bg.bmp");
+    player_bmp     = DEBUG_load_bitmap("./res/guy.bmp"),
+    background_bmp = DEBUG_load_bitmap("./res/bg.bmp"),
+    orb_bmp        = DEBUG_load_bitmap("./res/orb.bmp");
+
+  RenderTarget player_render;
+  player_render.bmp = &player_bmp;
+  glGenTextures(1, &player_render.gl_id);
+
+  RenderTarget background_render;
+  background_render.bmp = &background_bmp;
+  glGenTextures(1, &background_render.gl_id);
+
+  const usize num_orbs = 10;
+  Orb orbs[num_orbs];
+  for (usize i = 0; i < num_orbs; ++i) {
+    orbs[i].render.bmp = &orb_bmp;
+    glGenTextures(1, &orbs[1].render.gl_id);
+    
+    const i32
+      upper_x = (i32) (ASPECT_WIDTH / 2.0),
+      lower_x = -upper_x,
+      upper_y = (i32) (ASPECT_HEIGHT / 2.0),
+      lower_y = -upper_y;
+    
+    orbs[i].pos.x = (rand() % (upper_x - lower_x + 1)) + lower_x;
+    orbs[i].pos.y = (rand() % (upper_y - lower_y + 1)) + lower_y;
+  }
   
   const f32
     player_speed  = 5,
@@ -311,7 +334,7 @@ int main (void) {
     player_height = 2,
     jump_height   = 1,
     jump_duration = 0.25,
-    jump_vel      = (2.0 * jump_height) / jump_duration,
+    jump_vel      = ( 2.0 * jump_height) / jump_duration,
     jump_gravity  = (-2.0 * jump_height) / (jump_duration * jump_duration);
   
   const vec2 acc = v2(0, jump_gravity);
@@ -325,12 +348,17 @@ int main (void) {
     screen_y_origin = 0;
   
   f32 dt = 0;
-  vec2 player_pos = {0};
-  vec2 vel = {0};
-  u32 jumps = num_jumps;
-  u32 dashes = num_dashes;
+
+  Player player = {
+    .pos = v2_scalar(0.0f),
+    .vel = v2_scalar(0.0f),
+    .jumps = num_jumps,
+    .dashes = num_dashes,
+    .turned_left = false,
+    .render = player_render,
+  };
   bool should_quit = false;
-  bool turned_left = false;
+  
   while (!should_quit) {
     input_released = UDRI_BUTTON_NONE;
     input_pressed  = UDRI_BUTTON_NONE;
@@ -341,31 +369,41 @@ int main (void) {
       
       switch (event.type) {
       case KeyPress: {
+        printf("%x\n", event.xkey.keycode);
         const button_mask btn = linux_keybinds[event.xkey.keycode];
-        input_pressed  |= btn;
-        input_held     |= btn;
-        input_released &= ~btn;
+
+        // NOTE because keys that aren't mapped return multiple set bits
+        if(HAS_ONLY_ONE_SET_BIT(btn)) {
+          input_pressed  |= btn;
+          input_held     |= btn;
+          input_released &= ~btn;
+        }
       } break;
         
       case KeyRelease: {
         const button_mask btn = linux_keybinds[event.xkey.keycode];
-        input_released |= btn;
-        input_pressed  &= ~btn;
-        input_held     &= ~btn;
+
+        if(HAS_ONLY_ONE_SET_BIT(btn)) {
+          input_released |= btn;
+          input_pressed  &= ~btn;
+          input_held     &= ~btn;
+        }
       } break;
 
       case ConfigureNotify: {
         const usize
           old_w = screen_width,
+          old_h = screen_height,
           new_w = event.xconfigure.width,
           new_h = event.xconfigure.height;
 
-        if (new_w != old_w) {
-          screen_width = new_w;
-          screen_height = new_w / ASPECT_RATIO;
-          screen_x_origin = 0;
-          screen_y_origin = (i64) (((f64) new_h - (f64) screen_height) * 0.5);
-          if (screen_height > new_h) {
+        if (new_w != old_w || new_h != old_h) {
+          if (screen_height <= new_h) {
+            screen_width = new_w;
+            screen_height = new_w / ASPECT_RATIO;
+            screen_x_origin = 0;
+            screen_y_origin = (i64) (((f64) new_h - (f64) screen_height) * 0.5);
+          } else if (screen_height > new_h) {
             screen_height = new_h;
             screen_width = new_h * ASPECT_RATIO;
             screen_y_origin = 0;
@@ -391,63 +429,63 @@ int main (void) {
         should_quit = true;
       
       if (input_pressed & UDRI_BUTTON_X) {
-        if (jumps) {
-          vel.y = jump_vel;
-          jumps--;
+        if (player.jumps) {
+          player.vel.y = jump_vel;
+          player.jumps--;
         }
       }
 
       if (input_pressed & UDRI_BUTTON_LEFT) {
-        turned_left = true;
-        vel.x = -player_speed;
+        player.turned_left = true;
+        player.vel.x = -player_speed;
       }
 
       if (input_pressed & UDRI_BUTTON_RIGHT) {
-        turned_left = false;
-        vel.x = player_speed;
+        player.turned_left = false;
+        player.vel.x = player_speed;
       }
 
       if (input_pressed & UDRI_BUTTON_DOWN) {
-        vel.y = -jump_vel;
-        jumps = 0;
+        player.vel.y = -jump_vel;
+        player.jumps = 0;
       }
 
       if (input_pressed & UDRI_BUTTON_L) {
-        if (dashes) {
-          vel = vec2_mul_scalar(vel, 2);
-          dashes--;
+        if (player.dashes) {
+          player.vel = vec2_mul_scalar(player.vel, 2);
+          player.dashes--;
         }
       }
       
       if (input_released & UDRI_BUTTON_LEFT) {
-        if (vel.x < 0) vel.x = 0;
+        if (player.vel.x < 0) player.vel.x = 0;
       }
       
       if (input_released & UDRI_BUTTON_RIGHT) {
-        if (vel.x > 0) vel.x = 0;
+        if (player.vel.x > 0) player.vel.x = 0;
       }
       
       // update
-      const vec2 new_pos = vec2_add(player_pos, vec2_add(vec2_mul_scalar(vel, dt), vec2_mul_scalar(acc, 0.5*dt*dt)));
-      vel = vec2_add(vel, vec2_mul_scalar(acc, dt));
+      const vec2 new_pos = vec2_add(player.pos, vec2_add(vec2_mul_scalar(player.vel, dt), vec2_mul_scalar(acc, 0.5*dt*dt)));
+      player.vel = vec2_add(player.vel, vec2_mul_scalar(acc, dt));
 
       // TODO actual collision detection
       const f32 bottom = (player_height - ASPECT_HEIGHT) * 0.5;
       if (new_pos.y < bottom) {
-        vel.y = 0;
-        player_pos.y = bottom;
-        player_pos.x = new_pos.x;
-        jumps = num_jumps;
-        dashes = num_dashes;
+        player.vel.y = 0;
+        player.pos.y = bottom;
+        player.pos.x = new_pos.x;
+        player.jumps = num_jumps;
+        player.dashes = num_dashes;
         
         // probably don't want to do this but we'll see its funny
         if (input_held & UDRI_BUTTON_X) {
-          if (jumps) {
-            vel.y = jump_vel;
-            jumps--;
+          if (player.jumps) {
+            player.vel.y = jump_vel;
+            player.jumps--;
           }
         }
-      } else player_pos = new_pos;
+      } else player.pos = new_pos;
       
       // render
       const vec4 border_color = v4(0.0f, 0.0f, 0.0f, 1.0);
@@ -455,14 +493,17 @@ int main (void) {
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
       glViewport(screen_x_origin, screen_y_origin, screen_width, screen_height);
 
-      // TODO add a vX_zero and maybe make_vecX_one
+      // TODO add a vX_zero and maybe vX_unit
       // TODO add names to the layers or think of something smarter
-      gl_render_bitmap(background_bmp,
+      gl_render_bitmap(background_render,
                        ASPECT_WIDTH, ASPECT_HEIGHT,
                        v2_scalar(0.0f), 0.99f, false);
-      gl_render_bitmap(player_bmp,
+      gl_render_bitmap(player.render,
                        player_width, player_height,
-                       player_pos, 0.0f, turned_left);
+                       player.pos, 0.0f, player.turned_left);
+      
+      for (usize i = 0; i < num_orbs; ++i)
+        gl_render_bitmap(orbs[i].render, 1.0, 1.0, orbs[i].pos, 0.5, false);
     }
     
     glXSwapBuffers(display, win);
