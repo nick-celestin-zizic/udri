@@ -79,8 +79,8 @@ typedef struct {
 
 // NOTE temporary
 #define NUM_ORBS   10
-#define ORB_WIDTH  1.0f
-#define ORB_HEIGHT 1.0f
+#define ORB_WIDTH  0.5f
+#define ORB_HEIGHT 0.5f
 typedef struct {
   vec2 pos;
   RenderTarget render;

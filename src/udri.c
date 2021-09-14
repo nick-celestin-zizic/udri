@@ -110,15 +110,19 @@ void game_update_and_render(GameState *state, GameInput *input) {
     DEBUG_load_bitmap(&state->player.render.frames[0],
                       "./res/falcon/idle0.bmp");
     state->player.render.frames[0].frames_played_for = frames_played_for;
+    
     DEBUG_load_bitmap(&state->player.render.frames[1],
                       "./res/falcon/idle1.bmp");
     state->player.render.frames[1].frames_played_for = frames_played_for;
+    
     DEBUG_load_bitmap(&state->player.render.frames[2],
                       "./res/falcon/idle2.bmp");
     state->player.render.frames[2].frames_played_for = frames_played_for;
+    
     DEBUG_load_bitmap(&state->player.render.frames[3],
                       "./res/falcon/idle3.bmp");
     state->player.render.frames[3].frames_played_for = frames_played_for;
+    
     state->player.render.num_frames = 4;
     state->player.render.width  = PLAYER_WIDTH;
     state->player.render.height = PLAYER_HEIGHT;
