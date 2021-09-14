@@ -82,11 +82,18 @@ typedef struct {
 #define ORB_WIDTH  0.5f
 #define ORB_HEIGHT 0.5f
 typedef struct {
-  vec2 pos;
+  vec2 pos[NUM_ORBS];
   RenderTarget render;
-} Orb;
+} Orbs;
 
 // TODO have some sort of hotloaded file or smthn
+typedef enum {
+  PLAYER_STATE_IDLE = 0,
+  PLAYER_STATE_RUNNING,
+  PLAYER_STATE_JUMPING,
+  //PLAYER_STATE_
+} PlayerState;
+
 #define PLAYER_WIDTH          1.0f
 #define PLAYER_HEIGHT         1.5f
 #define PLAYER_SPEED          5.0f
@@ -100,6 +107,7 @@ typedef struct {
   vec2 pos, vel;
   u32 jumps, dashes;
   bool turned_left;
+  PlayerState state;
   RenderTarget render;
 } Player;
 
@@ -113,7 +121,7 @@ typedef struct {
   bool should_quit;
   bool is_initialized;
   Player player;
-  Orb orbs[NUM_ORBS];
+  Orbs orbs;
   GameScreen screen;
   RenderTarget background_render;
 } GameState;
