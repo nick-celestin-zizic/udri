@@ -60,13 +60,18 @@ typedef struct {
 typedef struct {
   const u8 *data;
   u32 width, height;
+  usize frames_played_for;
 } Bitmap;
 
+#define RENDER_TARGET_MAX_FRAMES        100
 #define RENDER_TARGET_BACKGROUND_LAYER  0.9f
 #define RENDER_TARGET_PLAYER_LAYER      0.1f
 #define RENDER_TARGET_ORB_LAYER         0.8f
 typedef struct {
-  Bitmap bmp;
+  usize num_frames;
+  usize current_frame_idx;
+  usize frames_elapsed;
+  Bitmap frames[RENDER_TARGET_MAX_FRAMES];
   f32 width, height;
   f32 layer;
   u32 gl_id;

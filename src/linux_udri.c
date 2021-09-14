@@ -284,10 +284,13 @@ int main (void) {
     clock_gettime(CLOCK_MONOTONIC, &tp);
     u64 current_time = (u64) tp.tv_nsec;
     //TODO figure out why clock_gettime fucks up sometimes
+    //NOTE fps seems to be locked to 60 which is good but i have no idea why
     if (current_time > last_time)
-      state.dt = (f32) (current_time - last_time) / 1000000000.0;
+      state.dt = (f32) (current_time - last_time) / 1000000000.0f;
     //printf("%f\n", dt);
     last_time = current_time;
+
+    //printf("%f\n", state.dt);
     
     game_update_and_render(&state, &input);
     

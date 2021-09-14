@@ -18,10 +18,23 @@ void DEBUG_load_bitmap(Bitmap *bmp, const char *path) {
   }
 }
 
+void assert(bool b) {
+  if (!b) {
+    printf("ASSERTION FAILED\n");
+    byte dead = *((byte *) NULL);
+    (void) dead;
+  }
+}
+
 // TODO clean this up, also eventually use vbo to render all bmps at once instead of the stupid fli_x and translatef stuff
 void gl_render_bitmap(RenderTarget rt, vec2 position, bool flip_x) {
+  assert(rt.current_frame_idx < rt.num_frames);
   glBindTexture(GL_TEXTURE_2D, rt.gl_id);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, rt.bmp.width, rt.bmp.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, rt.bmp.data);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
+               rt.frames[rt.current_frame_idx].width,
+               rt.frames[rt.current_frame_idx].height,
+               0, GL_RGBA, GL_UNSIGNED_BYTE,
+               rt.frames[rt.current_frame_idx].data);
   
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -93,14 +106,28 @@ void game_update_and_render(GameState *state, GameInput *input) {
     state->player.dashes      = PLAYER_NUM_DASHES;
     state->player.turned_left = false;
 
-    DEBUG_load_bitmap(&state->player.render.bmp, "./res/falcon/idle0.bmp");
+    const usize frames_played_for = 15;
+    DEBUG_load_bitmap(&state->player.render.frames[0],
+                      "./res/falcon/idle0.bmp");
+    state->player.render.frames[0].frames_played_for = frames_played_for;
+    DEBUG_load_bitmap(&state->player.render.frames[1],
+                      "./res/falcon/idle1.bmp");
+    state->player.render.frames[1].frames_played_for = frames_played_for;
+    DEBUG_load_bitmap(&state->player.render.frames[2],
+                      "./res/falcon/idle2.bmp");
+    state->player.render.frames[2].frames_played_for = frames_played_for;
+    DEBUG_load_bitmap(&state->player.render.frames[3],
+                      "./res/falcon/idle3.bmp");
+    state->player.render.frames[3].frames_played_for = frames_played_for;
+    state->player.render.num_frames = 4;
     state->player.render.width  = PLAYER_WIDTH;
     state->player.render.height = PLAYER_HEIGHT;
     state->player.render.layer  = RENDER_TARGET_PLAYER_LAYER;
   
     glGenTextures(1, &state->player.render.gl_id);
 
-    DEBUG_load_bitmap(&state->background_render.bmp, "./res/bg.bmp");
+    DEBUG_load_bitmap(&state->background_render.frames[0], "./res/bg.bmp");
+    state->background_render.num_frames = 1;
     state->background_render.width  = ASPECT_WIDTH;
     state->background_render.height = ASPECT_HEIGHT;
     state->background_render.layer  = RENDER_TARGET_BACKGROUND_LAYER;
@@ -111,11 +138,12 @@ void game_update_and_render(GameState *state, GameInput *input) {
     u32 orb_gl_id;
     glGenTextures(1, &orb_gl_id);
     for (usize i = 0; i < NUM_ORBS; ++i) {
-      state->orbs[i].render.bmp    = orb_bmp;
-      state->orbs[i].render.width  = ORB_WIDTH;
-      state->orbs[i].render.height = ORB_HEIGHT;
-      state->orbs[i].render.layer  = RENDER_TARGET_ORB_LAYER;
-      state->orbs[i].render.gl_id  = orb_gl_id;
+      state->orbs[i].render.frames[0]  = orb_bmp;
+      state->orbs[i].render.num_frames = 1;
+      state->orbs[i].render.width      = ORB_WIDTH;
+      state->orbs[i].render.height     = ORB_HEIGHT;
+      state->orbs[i].render.layer      = RENDER_TARGET_ORB_LAYER;
+      state->orbs[i].render.gl_id      = orb_gl_id;
     
       const i32
         upper_x = (i32) (ASPECT_WIDTH / 2.0),
@@ -170,6 +198,19 @@ void game_update_and_render(GameState *state, GameInput *input) {
   }
       
   // update
+  {
+    RenderTarget *r = &state->player.render;
+    r->frames_elapsed++;
+    //printf("%lu\n", r->frames_elapsed);
+    if (r->frames_elapsed >= r->frames[r->current_frame_idx].frames_played_for) {
+      //printf("NEW FRAME\n");
+      r->current_frame_idx += (r->current_frame_idx < r->num_frames-1) ?
+        1 : (-r->current_frame_idx);
+      r->frames_elapsed = 0;
+      //printf("%lu\n", r->current_frame_idx);
+    }
+  }
+  
   const f32 player_new_y =
     state->player.pos.y + ((state->player.vel.y*state->dt) + (PLAYER_JUMP_GRAVITY*0.5*state->dt*state->dt));
   state->player.pos.x += state->player.vel.x * state->dt;
