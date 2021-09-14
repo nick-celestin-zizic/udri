@@ -14,26 +14,8 @@
 #include <GL/glx.h>
 #include <GL/glu.h>
 
-#include "linux_udri.h"
-
-//#ifndef UDRI_RELEASE
-//#define LADEF
-//#endif
 #include "udri.c"
-#include "generated/udri_la.c"
-
-//TODO write our own image loader
-#define STB_IMAGE_IMPLEMENTATION
-#define STBI_NO_JPEG
-#define STBI_NO_PNG
-//#define STBI_NO_BMP
-#define STBI_NO_PSD
-#define STBI_NO_TGA
-#define STBI_NO_GIF
-#define STBI_NO_HDR
-#define STBI_NO_PIC
-#define STBI_NO_PNM
-#include "../lib/stb_image.h"
+#include "linux_udri.h"
 
 // TODO make this not garbage
 const char *linux_read_file (const char *path) {
@@ -275,7 +257,7 @@ int main (void) {
             state.screen.y_origin = 0;
           }
 
-          printf("%lu\n", state.screen.x_origin);
+          //printf("%f - %f\n", new_aspect_ratio, ASPECT_RATIO);
         }
       } break;
       }

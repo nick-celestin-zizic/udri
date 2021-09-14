@@ -1,10 +1,25 @@
 #include "udri.h"
+#include "generated/udri_la.h"
+
 #include "GL/gl.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+
+//TODO write our own image loader
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_NO_JPEG
+#define STBI_NO_PNG
+//#define STBI_NO_BMP
+#define STBI_NO_PSD
+#define STBI_NO_TGA
+#define STBI_NO_GIF
+#define STBI_NO_HDR
+#define STBI_NO_PIC
+#define STBI_NO_PNM
+#define STBI_ASSERT(x) ((void)(x))
 #include "../lib/stb_image.h"
 
 // TODO write our own bmp loader and maybe don't do the gl stuff idk
@@ -102,14 +117,13 @@ gl_render_bitmap(RenderTarget rt, vec2 position, bool flip_x) {
 static void
 udri_load_animation_frames(RenderTarget *r,
                            const char *name,
-                           usize frame_times[RENDER_TARGET_MAX_FRAMES]) {
+                           usize const frame_times[RENDER_TARGET_MAX_FRAMES], const usize unique_frame_times) {
   for (usize idx = 0; idx < r->num_frames; idx++) {
     const usize max_size = 256;
     char path[max_size];
     snprintf(path, max_size, "./res/%s%03lu.bmp", name, idx);
-    printf("loading %s\n", path);
     DEBUG_load_bitmap(&r->frames[idx], path);
-    r->frames[idx].frames_played_for = frame_times[idx];
+    r->frames[idx].frames_played_for = frame_times[idx % unique_frame_times];
   }
 }
 
@@ -133,16 +147,26 @@ game_update_and_render(GameState *state, GameInput *input) {
     state->player.jumps       = PLAYER_NUM_JUMPS;
     state->player.dashes      = PLAYER_NUM_DASHES;
 
+    {
+      PlayerState player_state = PLAYER_STATE_IDLE;
+      RenderTargetInfo info = player_render_infos[player_state];
+      state->player.renders[player_state] = info.r;
+      udri_load_animation_frames(&state->player.renders[player_state],
+                                 info.path, info.frame_times,
+                                 info.num_unique_frame_times);
+      glGenTextures(1, &state->player.renders[player_state].gl_id);
+    }
+    {
+      PlayerState player_state = PLAYER_STATE_RUNNING;
+      RenderTargetInfo info = player_render_infos[player_state];
+      state->player.renders[player_state] = info.r;
+      udri_load_animation_frames(&state->player.renders[player_state],
+                                 info.path, info.frame_times,
+                                 info.num_unique_frame_times);
+      glGenTextures(1, &state->player.renders[player_state].gl_id);
+    }
     
-    state->player.render.num_frames = 4;
-    static usize player_frame_times[RENDER_TARGET_MAX_FRAMES] = {15, 15, 15, 15};
-    udri_load_animation_frames(&state->player.render,
-                               "falcon/idle", player_frame_times);
-    state->player.render.width  = PLAYER_WIDTH;
-    state->player.render.height = PLAYER_HEIGHT;
-    state->player.render.layer  = RENDER_TARGET_PLAYER_LAYER;
-    glGenTextures(1, &state->player.render.gl_id);
-
+    // TODO render background in multiple layers for parallax
     DEBUG_load_bitmap(&state->background_render.frames[0], "./res/bg.bmp");
     state->background_render.num_frames = 1;
     state->background_render.width  = ASPECT_WIDTH;
@@ -150,14 +174,9 @@ game_update_and_render(GameState *state, GameInput *input) {
     state->background_render.layer  = RENDER_TARGET_BACKGROUND_LAYER;
     glGenTextures(1, &state->background_render.gl_id);
 
-    static const usize orb_frame_time = 6;
-    static usize orb_frame_times[RENDER_TARGET_MAX_FRAMES] = {
-      orb_frame_time, orb_frame_time, orb_frame_time,
-      orb_frame_time, orb_frame_time, orb_frame_time
-    };
+    const usize orb_frame_time = 6;
     state->orbs.render.num_frames = 6;
-    udri_load_animation_frames(&state->orbs.render,
-                               "orb/idle", orb_frame_times);
+    udri_load_animation_frames(&state->orbs.render, "orb/idle", &orb_frame_time, 1);
     state->orbs.render.width = ORB_WIDTH;
     state->orbs.render.height = ORB_HEIGHT;
     state->orbs.render.layer = RENDER_TARGET_ORB_LAYER;
@@ -215,9 +234,16 @@ game_update_and_render(GameState *state, GameInput *input) {
   if (input->released & UDRI_BUTTON_RIGHT) {
     if (state->player.vel.x > 0) state->player.vel.x = 0;
   }
+
+  if (input->held & UDRI_BUTTON_LEFT || input->held & UDRI_BUTTON_RIGHT) {
+    state->player.state = PLAYER_STATE_RUNNING;
+    // TODO change animation speed based on movement speed (look at the gdc talk u know the one)
+  } else {
+    state->player.state = PLAYER_STATE_IDLE;
+  }
       
   // update
-  loop_animation(&state->player.render);
+  loop_animation(&state->player.renders[state->player.state]);
   loop_animation(&state->orbs.render);
   
   const f32 player_new_y =
@@ -225,8 +251,9 @@ game_update_and_render(GameState *state, GameInput *input) {
   state->player.pos.x += state->player.vel.x * state->dt;
   state->player.vel.y += PLAYER_JUMP_GRAVITY * state->dt;
 
-  // TODO actual collision detection
-  const f32 bottom = (PLAYER_HEIGHT - ASPECT_HEIGHT) * 0.5;
+  // TODO actual collision detection and don't use render coordinates
+  const f32 bottom =
+    (state->player.renders[state->player.state].height - ASPECT_HEIGHT) * 0.5;
   if (player_new_y < bottom) {
     state->player.vel.y  = 0;
     state->player.pos.y  = bottom;
@@ -250,7 +277,7 @@ game_update_and_render(GameState *state, GameInput *input) {
 
   // TODO add a vX_zero and maybe vX_unit
   gl_render_bitmap(state->background_render, v2_scalar(0.0f), false);
-  gl_render_bitmap(state->player.render, state->player.pos, state->player.turned_left);
+  gl_render_bitmap(state->player.renders[state->player.state], state->player.pos, state->player.turned_left);
       
   for (usize i = 0; i < NUM_ORBS; ++i)
     gl_render_bitmap(state->orbs.render, state->orbs.pos[i], false);

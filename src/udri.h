@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include "./generated/udri_la.h"
+#include "generated/udri_la.c"
 
 typedef unsigned char byte;
 
@@ -90,12 +90,11 @@ typedef struct {
 typedef enum {
   PLAYER_STATE_IDLE = 0,
   PLAYER_STATE_RUNNING,
-  PLAYER_STATE_JUMPING,
-  //PLAYER_STATE_
+  //PLAYER_STATE_JUMPING,
+  PLAYER_STATE_COUNT,
 } PlayerState;
 
-#define PLAYER_WIDTH          1.0f
-#define PLAYER_HEIGHT         1.5f
+
 #define PLAYER_SPEED          5.0f
 #define PLAYER_JUMP_HEIGHT    1.0f
 #define PLAYER_NUM_DASHES     1.0f
@@ -108,8 +107,40 @@ typedef struct {
   u32 jumps, dashes;
   bool turned_left;
   PlayerState state;
-  RenderTarget render;
+  RenderTarget renders[PLAYER_STATE_COUNT];
 } Player;
+
+typedef struct {
+  const usize frame_times[RENDER_TARGET_MAX_FRAMES];
+  const usize num_unique_frame_times;
+  const char *path;
+  const RenderTarget r;
+} RenderTargetInfo;
+
+static const RenderTargetInfo player_render_infos[PLAYER_STATE_COUNT] = {
+  [PLAYER_STATE_IDLE] = {
+    .frame_times            = {15},
+    .num_unique_frame_times = 1,
+    .path                   = "falcon/idle",
+    .r = {
+      .width      = 1.0f,
+      .height     = 1.5f,
+      .layer      = RENDER_TARGET_PLAYER_LAYER,
+      .num_frames = 4,
+    },
+  },
+  [PLAYER_STATE_RUNNING] = {
+    .frame_times = {5},
+    .num_unique_frame_times = 1,
+    .path = "falcon/run",
+    .r = {
+      .width = 1.5f,
+      .height = 1.5f,
+      .layer = RENDER_TARGET_PLAYER_LAYER,
+      .num_frames = 8,
+    },
+  }
+};
 
 typedef struct {
   u64 width, height;
