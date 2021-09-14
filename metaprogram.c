@@ -12,7 +12,7 @@
                           CHAIN_CMD("gprof", EXE, PATH("bin", "gmon.out")),\
                           OUT("./bin/profile"))
 
-#define CFLAGS "-std=gnu11", "-Wall", "-Wextra", "-pedantic", "-I./libs/"
+#define CFLAGS "-std=gnu11", "-Wall", "-Wextra", "-pedantic", /* "-fms-extensions",*/ "-I./libs", "-I./src"
 #define INTERNAL_FLAGS DEBUG_FLAGS, "-DUDRI_INTERNAL"
 #define RELEASE_FLAGS "-ofast", "-DUDRI_RELEASE"
 #define EXE_NAME CONCAT(PLATFORM, "_udri")

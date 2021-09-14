@@ -1,10 +1,13 @@
+#ifndef _UDRI_H
+#define _UDRI_H
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
 
 #include "./generated/udri_la.h"
 
-typedef char byte;
+typedef unsigned char byte;
 
 typedef uint8_t  u8;
 typedef uint16_t u16;
@@ -49,25 +52,66 @@ typedef u16 button_mask;
 #define HAS_ONLY_ONE_SET_BIT(b) (b && !(btn & (btn - 1)))
 
 typedef struct {
+  button_mask held;
+  button_mask pressed;
+  button_mask released;
+} GameInput;
+
+typedef struct {
   const u8 *data;
   u32 width, height;
 } Bitmap;
 
+#define RENDER_TARGET_BACKGROUND_LAYER  0.9f
+#define RENDER_TARGET_PLAYER_LAYER      0.1f
+#define RENDER_TARGET_ORB_LAYER         0.8f
 typedef struct {
-  const Bitmap *bmp;
+  Bitmap bmp;
+  f32 width, height;
+  f32 layer;
   u32 gl_id;
 } RenderTarget; // TODO think of a better name and maybe reduntant
 
-// NOTE obviously temporary
+// NOTE temporary
+#define NUM_ORBS   10
+#define ORB_WIDTH  1.0f
+#define ORB_HEIGHT 1.0f
 typedef struct {
   vec2 pos;
-  u32 width, height;
   RenderTarget render;
 } Orb;
 
+// TODO have some sort of hotloaded file or smthn
+#define PLAYER_WIDTH          1.0f
+#define PLAYER_HEIGHT         1.5f
+#define PLAYER_SPEED          5.0f
+#define PLAYER_JUMP_HEIGHT    1.0f
+#define PLAYER_NUM_DASHES     1.0f
+#define PLAYER_NUM_JUMPS      3.0f
+#define PLAYER_JUMP_DURATION  0.25f
+#define PLAYER_JUMP_VELOCITY ((2.0*PLAYER_JUMP_HEIGHT)/PLAYER_JUMP_DURATION)
+#define PLAYER_JUMP_GRAVITY  ((-2.0*PLAYER_JUMP_HEIGHT)/(PLAYER_JUMP_DURATION*PLAYER_JUMP_DURATION))
 typedef struct {
   vec2 pos, vel;
   u32 jumps, dashes;
   bool turned_left;
   RenderTarget render;
 } Player;
+
+typedef struct {
+  u64 width, height;
+  i64 x_origin, y_origin;
+} GameScreen;
+
+typedef struct {
+  f32 dt;
+  bool should_quit;
+  bool is_initialized;
+  Player player;
+  Orb orbs[NUM_ORBS];
+  GameScreen screen;
+  RenderTarget background_render;
+} GameState;
+
+void game_update_and_render(GameState *state, GameInput *input);
+#endif // _UDRI_H
