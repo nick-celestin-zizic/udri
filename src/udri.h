@@ -58,9 +58,8 @@ typedef struct {
 } GameInput;
 
 typedef struct {
-  const u8 *data;
+  const byte *data;
   u32 width, height;
-  usize frames_played_for;
 } Bitmap;
 
 #define RENDER_TARGET_MAX_FRAMES        100
@@ -68,13 +67,17 @@ typedef struct {
 #define RENDER_TARGET_PLAYER_LAYER      0.1f
 #define RENDER_TARGET_ORB_LAYER         0.8f
 typedef struct {
-  usize num_frames;
-  usize current_frame_idx;
-  usize frames_elapsed;
-  Bitmap frames[RENDER_TARGET_MAX_FRAMES];
+  char *name;
+  u32 gl_id;
   f32 width, height;
   f32 layer;
-  u32 gl_id;
+  usize frame_times[RENDER_TARGET_MAX_FRAMES];
+  usize num_unique_frame_times;
+  Bitmap bmps[RENDER_TARGET_MAX_FRAMES];
+  usize num_bmps;
+  usize current_bmp_idx;
+  usize frames_elapsed;
+  bool looped;
 } RenderTarget; // TODO think of a better name and maybe reduntant
 
 // NOTE temporary
@@ -90,7 +93,8 @@ typedef struct {
 typedef enum {
   PLAYER_STATE_IDLE = 0,
   PLAYER_STATE_RUNNING,
-  //PLAYER_STATE_JUMPING,
+  PLAYER_STATE_JUMPING,
+  PLAYER_STATE_LANDING,
   PLAYER_STATE_COUNT,
 } PlayerState;
 
@@ -106,40 +110,56 @@ typedef struct {
   vec2 pos, vel;
   u32 jumps, dashes;
   bool turned_left;
-  PlayerState state;
+  bool is_grounded;
+  bool was_grounded;
+  bool is_landing;
+  PlayerState render_state;
   RenderTarget renders[PLAYER_STATE_COUNT];
 } Player;
 
-typedef struct {
-  const usize frame_times[RENDER_TARGET_MAX_FRAMES];
-  const usize num_unique_frame_times;
-  const char *path;
-  const RenderTarget r;
-} RenderTargetInfo;
-
-static const RenderTargetInfo player_render_infos[PLAYER_STATE_COUNT] = {
+#define IDLE_WIDTH 1.0f
+#define IDLE_HEIGHT 1.5f
+static const RenderTarget player_renders[PLAYER_STATE_COUNT] = {
   [PLAYER_STATE_IDLE] = {
-    .frame_times            = {15},
+    .name                   = "falcon/idle",
+    .layer                  = RENDER_TARGET_PLAYER_LAYER,
+    .width                  = IDLE_WIDTH,
+    .height                 = IDLE_HEIGHT,
+    .num_bmps               = 4,
+    .frame_times            = {10},
     .num_unique_frame_times = 1,
-    .path                   = "falcon/idle",
-    .r = {
-      .width      = 1.0f,
-      .height     = 1.5f,
-      .layer      = RENDER_TARGET_PLAYER_LAYER,
-      .num_frames = 4,
-    },
+    .looped                 = true,
   },
   [PLAYER_STATE_RUNNING] = {
-    .frame_times = {5},
+    .name                   = "falcon/run",
+    .layer                  = RENDER_TARGET_PLAYER_LAYER,
+    .width                  = IDLE_HEIGHT,
+    .height                 = IDLE_HEIGHT,
+    .num_bmps               = 8,
+    .frame_times            = {4},
     .num_unique_frame_times = 1,
-    .path = "falcon/run",
-    .r = {
-      .width = 1.5f,
-      .height = 1.5f,
-      .layer = RENDER_TARGET_PLAYER_LAYER,
-      .num_frames = 8,
-    },
-  }
+    .looped                 = true,
+  },
+  [PLAYER_STATE_JUMPING] = {
+    .name                   = "falcon/jump",
+    .layer                  = RENDER_TARGET_PLAYER_LAYER,
+    .width                  = IDLE_HEIGHT * (4.1f/6.2f),
+    .height                 = IDLE_HEIGHT,
+    .num_bmps               = 3,
+    .frame_times            = {2, 60, 6},
+    .num_unique_frame_times = 3,
+    .looped                 = false,
+  },
+  [PLAYER_STATE_LANDING] = {
+    .name                   = "falcon/land",
+    .layer                  = RENDER_TARGET_PLAYER_LAYER,
+    .width                  = IDLE_HEIGHT * (4.1f/6.2f),
+    .height                 = IDLE_HEIGHT,
+    .num_bmps               = 3,
+    .frame_times            = {1, 3, 1},
+    .num_unique_frame_times = 3,
+    .looped                 = false,
+  }, 
 };
 
 typedef struct {

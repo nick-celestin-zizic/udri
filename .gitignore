@@ -2,3 +2,6 @@ build*
 bin
 src/generated
 res/assets_from_itch
+*.kra
+*.png
+*~

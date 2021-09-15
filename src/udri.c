@@ -3,11 +3,6 @@
 
 #include "GL/gl.h"
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
-
 //TODO write our own image loader
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_NO_JPEG
@@ -22,7 +17,11 @@
 #define STBI_ASSERT(x) ((void)(x))
 #include "../lib/stb_image.h"
 
-// TODO write our own bmp loader and maybe don't do the gl stuff idk
+// TODO write our own bmp loader
+#include <stdlib.h>
+#include <stdio.h>
+#include <errno.h>
+#include <string.h>
 void
 DEBUG_load_bitmap(Bitmap *bmp, const char *path) {
   
@@ -46,13 +45,13 @@ assert(bool b) {
 // TODO clean this up, also eventually use vbo to render all bmps at once instead of the stupid fli_x and translatef stuff
 void
 gl_render_bitmap(RenderTarget rt, vec2 position, bool flip_x) {
-  assert(rt.current_frame_idx < rt.num_frames);
+  assert(rt.current_bmp_idx < rt.num_bmps);
   glBindTexture(GL_TEXTURE_2D, rt.gl_id);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
-               rt.frames[rt.current_frame_idx].width,
-               rt.frames[rt.current_frame_idx].height,
+               rt.bmps[rt.current_bmp_idx].width,
+               rt.bmps[rt.current_bmp_idx].height,
                0, GL_RGBA, GL_UNSIGNED_BYTE,
-               rt.frames[rt.current_frame_idx].data);
+               rt.bmps[rt.current_bmp_idx].data);
   
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -115,73 +114,97 @@ gl_render_bitmap(RenderTarget rt, vec2 position, bool flip_x) {
 }
 
 static void
-udri_load_animation_frames(RenderTarget *r,
-                           const char *name,
-                           usize const frame_times[RENDER_TARGET_MAX_FRAMES], const usize unique_frame_times) {
-  for (usize idx = 0; idx < r->num_frames; idx++) {
+udri_load_animation_frames(RenderTarget *r) {
+  for (usize idx = 0; idx < r->num_bmps; idx++) {
     const usize max_size = 256;
     char path[max_size];
-    snprintf(path, max_size, "./res/%s%03lu.bmp", name, idx);
-    DEBUG_load_bitmap(&r->frames[idx], path);
-    r->frames[idx].frames_played_for = frame_times[idx % unique_frame_times];
+    snprintf(path, max_size, "./res/%s%03lu.bmp", r->name, idx);
+    DEBUG_load_bitmap(&r->bmps[idx], path);
   }
 }
 
 static void
 loop_animation(RenderTarget *r) {
   r->frames_elapsed++;
-  if (r->frames_elapsed >= r->frames[r->current_frame_idx].frames_played_for) {
-    r->current_frame_idx += (r->current_frame_idx < r->num_frames-1) ?
-      1 : (-r->current_frame_idx);
+  const usize max_frame_time =
+    r->frame_times[r->current_bmp_idx % r->num_unique_frame_times];
+  if (r->frames_elapsed >= max_frame_time) {
+    r->current_bmp_idx += (r->current_bmp_idx < r->num_bmps-1) ?
+      1 : (-r->current_bmp_idx);
     r->frames_elapsed = 0;
   }
+}
+
+static void
+advance_animation(RenderTarget *r) {
+  const usize max_frames =
+    r->frame_times[r->current_bmp_idx % r->num_unique_frame_times];
+  if (r->frames_elapsed < max_frames) {
+    r->frames_elapsed++;
+  } else if (r->current_bmp_idx < r->num_bmps-1) {
+      r->current_bmp_idx++;
+      r->frames_elapsed = 0;
+  }
+}
+
+static inline void
+reset_animation(RenderTarget *r) {
+  r->current_bmp_idx = 0;
+  r->frames_elapsed  = 0;
+}
+
+static inline usize
+current_frame_time(RenderTarget *r) {
+  return r->frame_times[r->current_bmp_idx % r->num_unique_frame_times];
+}
+
+static inline bool
+animation_is_finished(RenderTarget *r) {
+  return (r->current_bmp_idx == r->num_bmps-1 &&
+          r->frames_elapsed  == current_frame_time(r));
 }
 
 void
 game_update_and_render(GameState *state, GameInput *input) {
   if (!state->is_initialized) {
     state->is_initialized = true;
+
     
-    state->player.pos         = v2_scalar(0.0f);
-    state->player.vel         = v2_scalar(0.0f);
     state->player.jumps       = PLAYER_NUM_JUMPS;
     state->player.dashes      = PLAYER_NUM_DASHES;
-
-    {
-      PlayerState player_state = PLAYER_STATE_IDLE;
-      RenderTargetInfo info = player_render_infos[player_state];
-      state->player.renders[player_state] = info.r;
-      udri_load_animation_frames(&state->player.renders[player_state],
-                                 info.path, info.frame_times,
-                                 info.num_unique_frame_times);
-      glGenTextures(1, &state->player.renders[player_state].gl_id);
-    }
-    {
-      PlayerState player_state = PLAYER_STATE_RUNNING;
-      RenderTargetInfo info = player_render_infos[player_state];
-      state->player.renders[player_state] = info.r;
-      udri_load_animation_frames(&state->player.renders[player_state],
-                                 info.path, info.frame_times,
-                                 info.num_unique_frame_times);
+    
+    for (usize player_state = 0;
+         player_state < PLAYER_STATE_COUNT;
+         player_state++) {
+      state->player.renders[player_state] = player_renders[player_state];
+      udri_load_animation_frames(&state->player.renders[player_state]);
       glGenTextures(1, &state->player.renders[player_state].gl_id);
     }
     
-    // TODO render background in multiple layers for parallax
-    DEBUG_load_bitmap(&state->background_render.frames[0], "./res/bg.bmp");
-    state->background_render.num_frames = 1;
-    state->background_render.width  = ASPECT_WIDTH;
-    state->background_render.height = ASPECT_HEIGHT;
-    state->background_render.layer  = RENDER_TARGET_BACKGROUND_LAYER;
-    glGenTextures(1, &state->background_render.gl_id);
+    {
+      RenderTarget *r = &state->background_render;
+      // TODO render background in multiple layers for parallax
+      DEBUG_load_bitmap(&r->bmps[0], "./res/bg.bmp");
+      r->num_bmps = 1;
+      r->width  = ASPECT_WIDTH;
+      r->height = ASPECT_HEIGHT;
+      r->layer  = RENDER_TARGET_BACKGROUND_LAYER;
+      glGenTextures(1, &r->gl_id);
+    }
 
-    const usize orb_frame_time = 6;
-    state->orbs.render.num_frames = 6;
-    udri_load_animation_frames(&state->orbs.render, "orb/idle", &orb_frame_time, 1);
-    state->orbs.render.width = ORB_WIDTH;
-    state->orbs.render.height = ORB_HEIGHT;
-    state->orbs.render.layer = RENDER_TARGET_ORB_LAYER;
+    {
+      RenderTarget *r = &state->orbs.render;
+      r->name                   = "orb/idle";
+      r->num_bmps               = 6;
+      r->num_unique_frame_times = 1;
+      r->frame_times[0]         = 6;
+      r->width                  = ORB_WIDTH;
+      r->height                 = ORB_HEIGHT;
+      r->layer                  = RENDER_TARGET_ORB_LAYER;
+      udri_load_animation_frames(r);
+      glGenTextures(1, &r->gl_id);
+    }
     
-    glGenTextures(1, &state->orbs.render.gl_id);
     for (usize i = 0; i < NUM_ORBS; ++i) {
       const i32
         upper_x = (i32) (ASPECT_WIDTH / 2.0),
@@ -193,26 +216,68 @@ game_update_and_render(GameState *state, GameInput *input) {
       state->orbs.pos[i].y = (rand() % (upper_y - lower_y + 1)) + lower_y;
     }
   }
+    // update
+  const f32 player_new_y =
+    state->player.pos.y + ((state->player.vel.y*state->dt) + (PLAYER_JUMP_GRAVITY*0.5*state->dt*state->dt));
+  state->player.pos.x += state->player.vel.x * state->dt;
+  state->player.vel.y += PLAYER_JUMP_GRAVITY * state->dt;
+
+  // TODO actual collision detection and don't use render coordinates
+  const f32 bottom =
+    (state->player.renders[state->player.render_state].height - ASPECT_HEIGHT) * 0.5;
+  if (player_new_y < bottom) {
+    state->player.vel.y  = 0;
+    state->player.pos.y  = bottom;
+    state->player.jumps  = PLAYER_NUM_JUMPS;
+    state->player.dashes = PLAYER_NUM_DASHES;
+    
+    if (state->player.is_grounded)
+      state->player.was_grounded = true;
+    else
+      state->player.is_grounded = true;
+        
+    // probably don't want to do this but we'll see its funny
+    if (input->held & UDRI_BUTTON_X) {
+      if (state->player.jumps) {
+        state->player.vel.y = PLAYER_JUMP_VELOCITY;
+        state->player.jumps--;
+      }
+    }
+  } else {
+    state->player.pos.y = player_new_y;
+    if (!state->player.is_grounded)
+      state->player.was_grounded = false;
+    else
+      state->player.is_grounded = false;
+  }
   
   // proccess input
   if (input->pressed & UDRI_BUTTON_START)
     state->should_quit = true;
       
   if (input->pressed & UDRI_BUTTON_X) {
-    if (state->player.jumps) {
+    if (state->player.is_grounded) {
+      state->player.is_grounded = false;
+    } else if (state->player.was_grounded){
+      state->player.was_grounded = false;
+    } else if (state->player.jumps) {
       state->player.vel.y = PLAYER_JUMP_VELOCITY;
       state->player.jumps--;
     }
   }
 
-  if (input->pressed & UDRI_BUTTON_LEFT) {
-    state->player.turned_left = true;
-    state->player.vel.x = -PLAYER_SPEED;
-  }
-
-  if (input->pressed & UDRI_BUTTON_RIGHT) {
-    state->player.turned_left = false;
-    state->player.vel.x = PLAYER_SPEED;
+  if (!state->player.is_landing || !state->player.is_grounded) {
+    if (input->held & UDRI_BUTTON_LEFT) {
+      state->player.turned_left = true;
+      state->player.vel.x = -PLAYER_SPEED;
+    }
+    
+    if (input->held & UDRI_BUTTON_RIGHT) {
+      state->player.turned_left = false;
+      state->player.vel.x = PLAYER_SPEED;
+    }
+  } else {
+    state->player.vel.x = 0.0f;
   }
 
   if (input->pressed & UDRI_BUTTON_DOWN) {
@@ -228,48 +293,45 @@ game_update_and_render(GameState *state, GameInput *input) {
   }
       
   if (input->released & UDRI_BUTTON_LEFT) {
+    //state->player.vel.x += PLAYER_SPEED;
     if (state->player.vel.x < 0) state->player.vel.x = 0;
   }
       
   if (input->released & UDRI_BUTTON_RIGHT) {
+    //state->player.vel.x -= PLAYER_SPEED;
     if (state->player.vel.x > 0) state->player.vel.x = 0;
   }
-
-  if (input->held & UDRI_BUTTON_LEFT || input->held & UDRI_BUTTON_RIGHT) {
-    state->player.state = PLAYER_STATE_RUNNING;
-    // TODO change animation speed based on movement speed (look at the gdc talk u know the one)
-  } else {
-    state->player.state = PLAYER_STATE_IDLE;
-  }
       
-  // update
-  loop_animation(&state->player.renders[state->player.state]);
+
+  // render
+  if (state->player.is_grounded) {
+    reset_animation(&state->player.renders[PLAYER_STATE_JUMPING]);
+    if (state->player.was_grounded) {
+      if (animation_is_finished(&state->player.renders[PLAYER_STATE_LANDING])) {
+        reset_animation(&state->player.renders[PLAYER_STATE_LANDING]);
+        state->player.is_landing = false;
+      }
+
+      if (!state->player.is_landing) {
+        state->player.render_state = (state->player.vel.x == 0) ?
+        PLAYER_STATE_IDLE : PLAYER_STATE_RUNNING;
+      }
+    } else {
+      state->player.is_landing = true;
+      state->player.render_state = PLAYER_STATE_LANDING;
+    }
+  } else {
+    reset_animation(&state->player.renders[PLAYER_STATE_LANDING]);
+    state->player.render_state = PLAYER_STATE_JUMPING;
+  }
+  
+  if (state->player.renders[state->player.render_state].looped)
+    loop_animation(&state->player.renders[state->player.render_state]);
+  else
+    advance_animation(&state->player.renders[state->player.render_state]);
+  
   loop_animation(&state->orbs.render);
   
-  const f32 player_new_y =
-    state->player.pos.y + ((state->player.vel.y*state->dt) + (PLAYER_JUMP_GRAVITY*0.5*state->dt*state->dt));
-  state->player.pos.x += state->player.vel.x * state->dt;
-  state->player.vel.y += PLAYER_JUMP_GRAVITY * state->dt;
-
-  // TODO actual collision detection and don't use render coordinates
-  const f32 bottom =
-    (state->player.renders[state->player.state].height - ASPECT_HEIGHT) * 0.5;
-  if (player_new_y < bottom) {
-    state->player.vel.y  = 0;
-    state->player.pos.y  = bottom;
-    state->player.jumps  = PLAYER_NUM_JUMPS;
-    state->player.dashes = PLAYER_NUM_DASHES;
-        
-    // probably don't want to do this but we'll see its funny
-    if (input->held & UDRI_BUTTON_X) {
-      if (state->player.jumps) {
-        state->player.vel.y = PLAYER_JUMP_VELOCITY;
-        state->player.jumps--;
-      }
-    }
-  } else state->player.pos.y = player_new_y;
-      
-  // render
   const vec4 border_color = v4(0.0f, 0.0f, 0.0f, 1.0);
   glClearColor(border_color.r, border_color.g, border_color.b, border_color.a);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -277,7 +339,8 @@ game_update_and_render(GameState *state, GameInput *input) {
 
   // TODO add a vX_zero and maybe vX_unit
   gl_render_bitmap(state->background_render, v2_scalar(0.0f), false);
-  gl_render_bitmap(state->player.renders[state->player.state], state->player.pos, state->player.turned_left);
+  
+  gl_render_bitmap(state->player.renders[state->player.render_state], state->player.pos, state->player.turned_left);
       
   for (usize i = 0; i < NUM_ORBS; ++i)
     gl_render_bitmap(state->orbs.render, state->orbs.pos[i], false);
