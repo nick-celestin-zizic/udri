@@ -102,7 +102,7 @@ typedef enum {
 #define PLAYER_SPEED          5.0f
 #define PLAYER_JUMP_HEIGHT    1.0f
 #define PLAYER_NUM_DASHES     1.0f
-#define PLAYER_NUM_JUMPS      3.0f
+#define PLAYER_NUM_JUMPS      2.0f
 #define PLAYER_JUMP_DURATION  0.25f
 #define PLAYER_JUMP_VELOCITY ((2.0*PLAYER_JUMP_HEIGHT)/PLAYER_JUMP_DURATION)
 #define PLAYER_JUMP_GRAVITY  ((-2.0*PLAYER_JUMP_HEIGHT)/(PLAYER_JUMP_DURATION*PLAYER_JUMP_DURATION))
@@ -113,6 +113,8 @@ typedef struct {
   bool is_grounded;
   bool was_grounded;
   bool is_landing;
+  bool started_jumping;
+  bool finished_jumping;
   PlayerState render_state;
   RenderTarget renders[PLAYER_STATE_COUNT];
 } Player;
@@ -146,7 +148,7 @@ static const RenderTarget player_renders[PLAYER_STATE_COUNT] = {
     .width                  = IDLE_HEIGHT * (4.1f/6.2f),
     .height                 = IDLE_HEIGHT,
     .num_bmps               = 3,
-    .frame_times            = {2, 60, 6},
+    .frame_times            = {2, 2, 1},
     .num_unique_frame_times = 3,
     .looped                 = false,
   },

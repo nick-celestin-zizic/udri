@@ -217,6 +217,13 @@ game_update_and_render(GameState *state, GameInput *input) {
     }
   }
     // update
+  if (state->player.started_jumping && state->player.finished_jumping) {
+    state->player.vel.y = PLAYER_JUMP_VELOCITY;
+    state->player.jumps--;
+    state->player.started_jumping = false;
+    state->player.finished_jumping = false;
+  }
+   
   const f32 player_new_y =
     state->player.pos.y + ((state->player.vel.y*state->dt) + (PLAYER_JUMP_GRAVITY*0.5*state->dt*state->dt));
   state->player.pos.x += state->player.vel.x * state->dt;
@@ -235,14 +242,7 @@ game_update_and_render(GameState *state, GameInput *input) {
       state->player.was_grounded = true;
     else
       state->player.is_grounded = true;
-        
-    // probably don't want to do this but we'll see its funny
-    if (input->held & UDRI_BUTTON_X) {
-      if (state->player.jumps) {
-        state->player.vel.y = PLAYER_JUMP_VELOCITY;
-        state->player.jumps--;
-      }
-    }
+    
   } else {
     state->player.pos.y = player_new_y;
     if (!state->player.is_grounded)
@@ -256,30 +256,27 @@ game_update_and_render(GameState *state, GameInput *input) {
     state->should_quit = true;
       
   if (input->pressed & UDRI_BUTTON_X) {
-    if (state->player.is_grounded) {
-      state->player.is_grounded = false;
-    } else if (state->player.was_grounded){
-      state->player.was_grounded = false;
-    } else if (state->player.jumps) {
-      state->player.vel.y = PLAYER_JUMP_VELOCITY;
-      state->player.jumps--;
-    }
+    state->player.started_jumping = true;
+    if (!state->player.is_grounded)
+      state->player.finished_jumping = true;
+  }
+  
+  if (input->held & UDRI_BUTTON_LEFT) {
+    state->player.turned_left = true;
+    state->player.vel.x = -PLAYER_SPEED;
+  }
+  
+  if (input->held & UDRI_BUTTON_RIGHT) {
+    state->player.turned_left = false;
+    state->player.vel.x = +PLAYER_SPEED;
   }
 
-  if (!state->player.is_landing || !state->player.is_grounded) {
-    if (input->held & UDRI_BUTTON_LEFT) {
-      state->player.turned_left = true;
-      state->player.vel.x = -PLAYER_SPEED;
-    }
-    
-    if (input->held & UDRI_BUTTON_RIGHT) {
-      state->player.turned_left = false;
-      state->player.vel.x = PLAYER_SPEED;
-    }
-  } else {
+  if (input->held & UDRI_BUTTON_RIGHT && input->held & UDRI_BUTTON_LEFT) {
     state->player.vel.x = 0.0f;
   }
 
+  //if (state->player.is_landing) state->player.vel.x = 0.0f;
+  
   if (input->pressed & UDRI_BUTTON_DOWN) {
     state->player.vel.y = -PLAYER_JUMP_VELOCITY;
     state->player.jumps = 0;
@@ -304,24 +301,30 @@ game_update_and_render(GameState *state, GameInput *input) {
       
 
   // render
+
+  // TODO clean this up this is a nightmare maybe have it be a switch on the current state and do the animations from there
   if (state->player.is_grounded) {
-    reset_animation(&state->player.renders[PLAYER_STATE_JUMPING]);
     if (state->player.was_grounded) {
-      if (animation_is_finished(&state->player.renders[PLAYER_STATE_LANDING])) {
+      if (!state->player.is_landing) {
+        if (state->player.started_jumping) {
+          state->player.render_state = PLAYER_STATE_JUMPING;
+          if (state->player.renders[PLAYER_STATE_JUMPING].current_bmp_idx == 1) {
+            state->player.finished_jumping = true;
+          }
+        } else {
+          state->player.render_state = (state->player.vel.x == 0) ?
+            PLAYER_STATE_IDLE : PLAYER_STATE_RUNNING;
+        }
+      } else if (animation_is_finished(&state->player.renders[PLAYER_STATE_LANDING])) {
         reset_animation(&state->player.renders[PLAYER_STATE_LANDING]);
         state->player.is_landing = false;
-      }
-
-      if (!state->player.is_landing) {
-        state->player.render_state = (state->player.vel.x == 0) ?
-        PLAYER_STATE_IDLE : PLAYER_STATE_RUNNING;
-      }
+      }      
     } else {
+      reset_animation(&state->player.renders[PLAYER_STATE_JUMPING]);
       state->player.is_landing = true;
       state->player.render_state = PLAYER_STATE_LANDING;
     }
   } else {
-    reset_animation(&state->player.renders[PLAYER_STATE_LANDING]);
     state->player.render_state = PLAYER_STATE_JUMPING;
   }
   
