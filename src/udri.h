@@ -94,27 +94,33 @@ typedef enum {
   PLAYER_STATE_IDLE = 0,
   PLAYER_STATE_RUNNING,
   PLAYER_STATE_JUMPING,
+  PLAYER_STATE_DOUBLEJUMPING,
   PLAYER_STATE_LANDING,
   PLAYER_STATE_COUNT,
 } PlayerState;
 
+typedef enum {
+  PLAYER_JUMP_STATE_CAN_JUMP = 0,
+  PLAYER_JUMP_STATE_STARTED_JUMP,
+  PLAYER_JUMP_STATE_FINISHED_JUMP,
+  PLAYER_JUMP_STATE_CAN_DOUBLEJUMP,
+  PLAYER_JUMP_STATE_DOUBLEJUMPED,
+  PLAYER_JUMP_STATE_CANNOT_JUMP,
+} PlayerJumpState;
 
 #define PLAYER_SPEED          5.0f
 #define PLAYER_JUMP_HEIGHT    1.0f
-#define PLAYER_NUM_DASHES     1.0f
-#define PLAYER_NUM_JUMPS      2.0f
+#define PLAYER_NUM_JUMPS      2
 #define PLAYER_JUMP_DURATION  0.25f
 #define PLAYER_JUMP_VELOCITY ((2.0*PLAYER_JUMP_HEIGHT)/PLAYER_JUMP_DURATION)
 #define PLAYER_JUMP_GRAVITY  ((-2.0*PLAYER_JUMP_HEIGHT)/(PLAYER_JUMP_DURATION*PLAYER_JUMP_DURATION))
 typedef struct {
   vec2 pos, vel;
-  u32 jumps, dashes;
   bool turned_left;
   bool is_grounded;
   bool was_grounded;
   bool is_landing;
-  bool started_jumping;
-  bool finished_jumping;
+  PlayerJumpState jump_state;
   PlayerState render_state;
   RenderTarget renders[PLAYER_STATE_COUNT];
 } Player;
@@ -151,6 +157,16 @@ static const RenderTarget player_renders[PLAYER_STATE_COUNT] = {
     .frame_times            = {2, 2, 1},
     .num_unique_frame_times = 3,
     .looped                 = false,
+  },
+  [PLAYER_STATE_DOUBLEJUMPING] = {
+    .name                   = "falcon/doublejump",
+    .layer                  = RENDER_TARGET_PLAYER_LAYER,
+    .width                  = IDLE_HEIGHT * (4.1f/6.2f),
+    .height                 = IDLE_HEIGHT,
+    .num_bmps               = 3,
+    .frame_times            = {4},
+    .num_unique_frame_times = 1,
+    .looped                 = true,
   },
   [PLAYER_STATE_LANDING] = {
     .name                   = "falcon/land",

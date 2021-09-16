@@ -34,9 +34,9 @@ DEBUG_load_bitmap(Bitmap *bmp, const char *path) {
 }
 
 void
-assert(bool b) {
+assert(bool b, const char *msg) {
   if (!b) {
-    printf("ASSERTION FAILED\n");
+    printf("%s\n", msg);
     byte dead = *((byte *) NULL);
     (void) dead;
   }
@@ -45,7 +45,7 @@ assert(bool b) {
 // TODO clean this up, also eventually use vbo to render all bmps at once instead of the stupid fli_x and translatef stuff
 void
 gl_render_bitmap(RenderTarget rt, vec2 position, bool flip_x) {
-  assert(rt.current_bmp_idx < rt.num_bmps);
+  assert(rt.current_bmp_idx < rt.num_bmps, "bmp index out of bounds");
   glBindTexture(GL_TEXTURE_2D, rt.gl_id);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
                rt.bmps[rt.current_bmp_idx].width,
@@ -168,10 +168,6 @@ void
 game_update_and_render(GameState *state, GameInput *input) {
   if (!state->is_initialized) {
     state->is_initialized = true;
-
-    
-    state->player.jumps       = PLAYER_NUM_JUMPS;
-    state->player.dashes      = PLAYER_NUM_DASHES;
     
     for (usize player_state = 0;
          player_state < PLAYER_STATE_COUNT;
@@ -216,12 +212,15 @@ game_update_and_render(GameState *state, GameInput *input) {
       state->orbs.pos[i].y = (rand() % (upper_y - lower_y + 1)) + lower_y;
     }
   }
-    // update
-  if (state->player.started_jumping && state->player.finished_jumping) {
+  // update
+  if (state->player.jump_state == PLAYER_JUMP_STATE_FINISHED_JUMP) {
     state->player.vel.y = PLAYER_JUMP_VELOCITY;
-    state->player.jumps--;
-    state->player.started_jumping = false;
-    state->player.finished_jumping = false;
+    state->player.jump_state = PLAYER_JUMP_STATE_CAN_DOUBLEJUMP;
+  }
+
+  if (state->player.jump_state == PLAYER_JUMP_STATE_DOUBLEJUMPED) {
+    state->player.vel.y = PLAYER_JUMP_VELOCITY;
+    state->player.jump_state = PLAYER_JUMP_STATE_CANNOT_JUMP;
   }
    
   const f32 player_new_y =
@@ -235,13 +234,15 @@ game_update_and_render(GameState *state, GameInput *input) {
   if (player_new_y < bottom) {
     state->player.vel.y  = 0;
     state->player.pos.y  = bottom;
-    state->player.jumps  = PLAYER_NUM_JUMPS;
-    state->player.dashes = PLAYER_NUM_DASHES;
-    
-    if (state->player.is_grounded)
+
+    state->player.jump_state = PLAYER_JUMP_STATE_CAN_JUMP;
+
+    if (state->player.is_grounded) {
       state->player.was_grounded = true;
-    else
+    } else {
       state->player.is_grounded = true;
+      state->player.is_landing = true;
+    }
     
   } else {
     state->player.pos.y = player_new_y;
@@ -256,9 +257,11 @@ game_update_and_render(GameState *state, GameInput *input) {
     state->should_quit = true;
       
   if (input->pressed & UDRI_BUTTON_X) {
-    state->player.started_jumping = true;
-    if (!state->player.is_grounded)
-      state->player.finished_jumping = true;
+    if (state->player.jump_state == PLAYER_JUMP_STATE_CAN_JUMP) {
+      state->player.jump_state = PLAYER_JUMP_STATE_STARTED_JUMP;
+    } else if (state->player.jump_state == PLAYER_JUMP_STATE_CAN_DOUBLEJUMP) {
+      state->player.jump_state = PLAYER_JUMP_STATE_DOUBLEJUMPED;
+    }
   }
   
   if (input->held & UDRI_BUTTON_LEFT) {
@@ -274,19 +277,9 @@ game_update_and_render(GameState *state, GameInput *input) {
   if (input->held & UDRI_BUTTON_RIGHT && input->held & UDRI_BUTTON_LEFT) {
     state->player.vel.x = 0.0f;
   }
-
-  //if (state->player.is_landing) state->player.vel.x = 0.0f;
   
   if (input->pressed & UDRI_BUTTON_DOWN) {
     state->player.vel.y = -PLAYER_JUMP_VELOCITY;
-    state->player.jumps = 0;
-  }
-
-  if (input->pressed & UDRI_BUTTON_L) {
-    if (state->player.dashes) {
-      state->player.vel = vec2_mul_scalar(state->player.vel, 2);
-      state->player.dashes--;
-    }
   }
       
   if (input->released & UDRI_BUTTON_LEFT) {
@@ -303,6 +296,59 @@ game_update_and_render(GameState *state, GameInput *input) {
   // render
 
   // TODO clean this up this is a nightmare maybe have it be a switch on the current state and do the animations from there
+  switch (state->player.render_state) {
+  case PLAYER_STATE_IDLE: {
+    if (state->player.jump_state == PLAYER_JUMP_STATE_STARTED_JUMP) {
+      state->player.render_state = PLAYER_STATE_JUMPING;
+    } else if (state->player.vel.x != 0) {
+      state->player.render_state = PLAYER_STATE_RUNNING;
+    }
+  } break;
+
+  case PLAYER_STATE_RUNNING: {
+    if (state->player.vel.x == 0) {
+      state->player.render_state = PLAYER_STATE_IDLE;
+    } else if (state->player.jump_state == PLAYER_JUMP_STATE_STARTED_JUMP) {
+      state->player.render_state = PLAYER_STATE_JUMPING;
+    }
+  } break;
+
+  case PLAYER_STATE_JUMPING: {
+    if (state->player.renders[PLAYER_STATE_JUMPING].current_bmp_idx == 1) {
+      state->player.jump_state = PLAYER_JUMP_STATE_FINISHED_JUMP;
+    } else if (!state->player.was_grounded && state->player.is_grounded) {
+      state->player.is_landing = true;
+      state->player.render_state = PLAYER_STATE_LANDING;
+    }
+
+    if (state->player.jump_state == PLAYER_JUMP_STATE_DOUBLEJUMPED) {
+      state->player.render_state = PLAYER_STATE_DOUBLEJUMPING;
+    }
+  } break;
+    
+  case PLAYER_STATE_DOUBLEJUMPING: {
+    if (!state->player.was_grounded && state->player.is_grounded) {
+      state->player.is_landing = true;
+      state->player.render_state = PLAYER_STATE_LANDING;
+    }
+  } break;
+
+  case PLAYER_STATE_LANDING: {
+    if (animation_is_finished(&state->player.renders[PLAYER_STATE_LANDING])) {
+      state->player.is_landing = false;
+      reset_animation(&state->player.renders[PLAYER_STATE_JUMPING]);
+      reset_animation(&state->player.renders[PLAYER_STATE_LANDING]);
+      state->player.render_state = (state->player.vel.x == 0) ?
+        PLAYER_STATE_IDLE : PLAYER_STATE_RUNNING;
+    }
+  } break;
+
+  case PLAYER_STATE_COUNT: {
+    assert(false, "unreachable");
+  } break;
+  }
+  
+#if 0
   if (state->player.is_grounded) {
     if (state->player.was_grounded) {
       if (!state->player.is_landing) {
@@ -318,7 +364,7 @@ game_update_and_render(GameState *state, GameInput *input) {
       } else if (animation_is_finished(&state->player.renders[PLAYER_STATE_LANDING])) {
         reset_animation(&state->player.renders[PLAYER_STATE_LANDING]);
         state->player.is_landing = false;
-      }      
+      }
     } else {
       reset_animation(&state->player.renders[PLAYER_STATE_JUMPING]);
       state->player.is_landing = true;
@@ -327,6 +373,7 @@ game_update_and_render(GameState *state, GameInput *input) {
   } else {
     state->player.render_state = PLAYER_STATE_JUMPING;
   }
+#endif
   
   if (state->player.renders[state->player.render_state].looped)
     loop_animation(&state->player.renders[state->player.render_state]);
