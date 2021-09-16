@@ -91,13 +91,13 @@ typedef struct {
 
 // TODO have some sort of hotloaded file or smthn
 typedef enum {
-  PLAYER_STATE_IDLE = 0,
-  PLAYER_STATE_RUNNING,
-  PLAYER_STATE_JUMPING,
-  PLAYER_STATE_DOUBLEJUMPING,
-  PLAYER_STATE_LANDING,
-  PLAYER_STATE_COUNT,
-} PlayerState;
+  PLAYER_RENDER_STATE_IDLE = 0,
+  PLAYER_RENDER_STATE_RUNNING,
+  PLAYER_RENDER_STATE_JUMPING,
+  PLAYER_RENDER_STATE_DOUBLEJUMPING,
+  PLAYER_RENDER_STATE_LANDING,
+  PLAYER_RENDER_STATE_COUNT,
+} PlayerRenderState;
 
 typedef enum {
   PLAYER_JUMP_STATE_CAN_JUMP = 0,
@@ -117,18 +117,19 @@ typedef enum {
 typedef struct {
   vec2 pos, vel;
   bool turned_left;
+  // TODO make a PlayerAirState or something like that (bunch of bools == torture).
   bool is_grounded;
   bool was_grounded;
   bool is_landing;
   PlayerJumpState jump_state;
-  PlayerState render_state;
-  RenderTarget renders[PLAYER_STATE_COUNT];
+  PlayerRenderState render_state;
+  RenderTarget renders[PLAYER_RENDER_STATE_COUNT];
 } Player;
 
 #define IDLE_WIDTH 1.0f
 #define IDLE_HEIGHT 1.5f
-static const RenderTarget player_renders[PLAYER_STATE_COUNT] = {
-  [PLAYER_STATE_IDLE] = {
+static const RenderTarget player_renders[PLAYER_RENDER_STATE_COUNT] = {
+  [PLAYER_RENDER_STATE_IDLE] = {
     .name                   = "falcon/idle",
     .layer                  = RENDER_TARGET_PLAYER_LAYER,
     .width                  = IDLE_WIDTH,
@@ -138,7 +139,7 @@ static const RenderTarget player_renders[PLAYER_STATE_COUNT] = {
     .num_unique_frame_times = 1,
     .looped                 = true,
   },
-  [PLAYER_STATE_RUNNING] = {
+  [PLAYER_RENDER_STATE_RUNNING] = {
     .name                   = "falcon/run",
     .layer                  = RENDER_TARGET_PLAYER_LAYER,
     .width                  = IDLE_HEIGHT,
@@ -148,7 +149,7 @@ static const RenderTarget player_renders[PLAYER_STATE_COUNT] = {
     .num_unique_frame_times = 1,
     .looped                 = true,
   },
-  [PLAYER_STATE_JUMPING] = {
+  [PLAYER_RENDER_STATE_JUMPING] = {
     .name                   = "falcon/jump",
     .layer                  = RENDER_TARGET_PLAYER_LAYER,
     .width                  = IDLE_HEIGHT * (4.1f/6.2f),
@@ -158,7 +159,7 @@ static const RenderTarget player_renders[PLAYER_STATE_COUNT] = {
     .num_unique_frame_times = 3,
     .looped                 = false,
   },
-  [PLAYER_STATE_DOUBLEJUMPING] = {
+  [PLAYER_RENDER_STATE_DOUBLEJUMPING] = {
     .name                   = "falcon/doublejump",
     .layer                  = RENDER_TARGET_PLAYER_LAYER,
     .width                  = IDLE_HEIGHT * (4.1f/6.2f),
@@ -168,7 +169,7 @@ static const RenderTarget player_renders[PLAYER_STATE_COUNT] = {
     .num_unique_frame_times = 1,
     .looped                 = true,
   },
-  [PLAYER_STATE_LANDING] = {
+  [PLAYER_RENDER_STATE_LANDING] = {
     .name                   = "falcon/land",
     .layer                  = RENDER_TARGET_PLAYER_LAYER,
     .width                  = IDLE_HEIGHT * (4.1f/6.2f),

@@ -170,7 +170,7 @@ game_update_and_render(GameState *state, GameInput *input) {
     state->is_initialized = true;
     
     for (usize player_state = 0;
-         player_state < PLAYER_STATE_COUNT;
+         player_state < PLAYER_RENDER_STATE_COUNT;
          player_state++) {
       state->player.renders[player_state] = player_renders[player_state];
       udri_load_animation_frames(&state->player.renders[player_state]);
@@ -297,53 +297,53 @@ game_update_and_render(GameState *state, GameInput *input) {
 
   // TODO clean this up this is a nightmare maybe have it be a switch on the current state and do the animations from there
   switch (state->player.render_state) {
-  case PLAYER_STATE_IDLE: {
+  case PLAYER_RENDER_STATE_IDLE: {
     if (state->player.jump_state == PLAYER_JUMP_STATE_STARTED_JUMP) {
-      state->player.render_state = PLAYER_STATE_JUMPING;
+      state->player.render_state = PLAYER_RENDER_STATE_JUMPING;
     } else if (state->player.vel.x != 0) {
-      state->player.render_state = PLAYER_STATE_RUNNING;
+      state->player.render_state = PLAYER_RENDER_STATE_RUNNING;
     }
   } break;
 
-  case PLAYER_STATE_RUNNING: {
+  case PLAYER_RENDER_STATE_RUNNING: {
     if (state->player.vel.x == 0) {
-      state->player.render_state = PLAYER_STATE_IDLE;
+      state->player.render_state = PLAYER_RENDER_STATE_IDLE;
     } else if (state->player.jump_state == PLAYER_JUMP_STATE_STARTED_JUMP) {
-      state->player.render_state = PLAYER_STATE_JUMPING;
+      state->player.render_state = PLAYER_RENDER_STATE_JUMPING;
     }
   } break;
 
-  case PLAYER_STATE_JUMPING: {
-    if (state->player.renders[PLAYER_STATE_JUMPING].current_bmp_idx == 1) {
+  case PLAYER_RENDER_STATE_JUMPING: {
+    if (state->player.renders[PLAYER_RENDER_STATE_JUMPING].current_bmp_idx == 1) {
       state->player.jump_state = PLAYER_JUMP_STATE_FINISHED_JUMP;
     } else if (!state->player.was_grounded && state->player.is_grounded) {
       state->player.is_landing = true;
-      state->player.render_state = PLAYER_STATE_LANDING;
+      state->player.render_state = PLAYER_RENDER_STATE_LANDING;
     }
 
     if (state->player.jump_state == PLAYER_JUMP_STATE_DOUBLEJUMPED) {
-      state->player.render_state = PLAYER_STATE_DOUBLEJUMPING;
+      state->player.render_state = PLAYER_RENDER_STATE_DOUBLEJUMPING;
     }
   } break;
     
-  case PLAYER_STATE_DOUBLEJUMPING: {
+  case PLAYER_RENDER_STATE_DOUBLEJUMPING: {
     if (!state->player.was_grounded && state->player.is_grounded) {
       state->player.is_landing = true;
-      state->player.render_state = PLAYER_STATE_LANDING;
+      state->player.render_state = PLAYER_RENDER_STATE_LANDING;
     }
   } break;
 
-  case PLAYER_STATE_LANDING: {
-    if (animation_is_finished(&state->player.renders[PLAYER_STATE_LANDING])) {
+  case PLAYER_RENDER_STATE_LANDING: {
+    if (animation_is_finished(&state->player.renders[PLAYER_RENDER_STATE_LANDING])) {
       state->player.is_landing = false;
-      reset_animation(&state->player.renders[PLAYER_STATE_JUMPING]);
-      reset_animation(&state->player.renders[PLAYER_STATE_LANDING]);
+      reset_animation(&state->player.renders[PLAYER_RENDER_STATE_JUMPING]);
+      reset_animation(&state->player.renders[PLAYER_RENDER_STATE_LANDING]);
       state->player.render_state = (state->player.vel.x == 0) ?
-        PLAYER_STATE_IDLE : PLAYER_STATE_RUNNING;
+        PLAYER_RENDER_STATE_IDLE : PLAYER_RENDER_STATE_RUNNING;
     }
   } break;
 
-  case PLAYER_STATE_COUNT: {
+  case PLAYER_RENDER_STATE_COUNT: {
     assert(false, "unreachable");
   } break;
   }
@@ -353,25 +353,25 @@ game_update_and_render(GameState *state, GameInput *input) {
     if (state->player.was_grounded) {
       if (!state->player.is_landing) {
         if (state->player.started_jumping) {
-          state->player.render_state = PLAYER_STATE_JUMPING;
-          if (state->player.renders[PLAYER_STATE_JUMPING].current_bmp_idx == 1) {
+          state->player.render_state = PLAYER_RENDER_STATE_JUMPING;
+          if (state->player.renders[PLAYER_RENDER_STATE_JUMPING].current_bmp_idx == 1) {
             state->player.finished_jumping = true;
           }
         } else {
           state->player.render_state = (state->player.vel.x == 0) ?
-            PLAYER_STATE_IDLE : PLAYER_STATE_RUNNING;
+            PLAYER_RENDER_STATE_IDLE : PLAYER_RENDER_STATE_RUNNING;
         }
-      } else if (animation_is_finished(&state->player.renders[PLAYER_STATE_LANDING])) {
-        reset_animation(&state->player.renders[PLAYER_STATE_LANDING]);
+      } else if (animation_is_finished(&state->player.renders[PLAYER_RENDER_STATE_LANDING])) {
+        reset_animation(&state->player.renders[PLAYER_RENDER_STATE_LANDING]);
         state->player.is_landing = false;
       }
     } else {
-      reset_animation(&state->player.renders[PLAYER_STATE_JUMPING]);
+      reset_animation(&state->player.renders[PLAYER_RENDER_STATE_JUMPING]);
       state->player.is_landing = true;
-      state->player.render_state = PLAYER_STATE_LANDING;
+      state->player.render_state = PLAYER_RENDER_STATE_LANDING;
     }
   } else {
-    state->player.render_state = PLAYER_STATE_JUMPING;
+    state->player.render_state = PLAYER_RENDER_STATE_JUMPING;
   }
 #endif
   
