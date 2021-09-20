@@ -80,7 +80,7 @@ typedef struct {
   bool looped;
 } RenderTarget; // TODO think of a better name and maybe reduntant
 
-// NOTE temporary
+// NOTE temporary also SOA pretty funny
 #define NUM_ORBS   10
 #define ORB_WIDTH  0.5f
 #define ORB_HEIGHT 0.5f
@@ -94,7 +94,7 @@ typedef enum {
   PLAYER_RENDER_STATE_IDLE = 0,
   PLAYER_RENDER_STATE_RUNNING,
   PLAYER_RENDER_STATE_JUMPING,
-  PLAYER_RENDER_STATE_DOUBLEJUMPING,
+  PLAYER_RENDER_STATE_DOUBLE_JUMPING,
   PLAYER_RENDER_STATE_LANDING,
   PLAYER_RENDER_STATE_COUNT,
 } PlayerRenderState;
@@ -103,9 +103,10 @@ typedef enum {
   PLAYER_JUMP_STATE_CAN_JUMP = 0,
   PLAYER_JUMP_STATE_STARTED_JUMP,
   PLAYER_JUMP_STATE_FINISHED_JUMP,
-  PLAYER_JUMP_STATE_CAN_DOUBLEJUMP,
-  PLAYER_JUMP_STATE_DOUBLEJUMPED,
+  PLAYER_JUMP_STATE_CAN_DOUBLE_JUMP,
+  PLAYER_JUMP_STATE_DOUBLE_JUMPED,
   PLAYER_JUMP_STATE_CANNOT_JUMP,
+  PLAYER_JUMP_STATE_COUNT,
 } PlayerJumpState;
 
 typedef enum {
@@ -165,8 +166,8 @@ static const RenderTarget player_renders[PLAYER_RENDER_STATE_COUNT] = {
     .num_unique_frame_times = 3,
     .looped                 = false,
   },
-  [PLAYER_RENDER_STATE_DOUBLEJUMPING] = {
-    .name                   = "falcon/doublejump",
+  [PLAYER_RENDER_STATE_DOUBLE_JUMPING] = {
+    .name                   = "falcon/double_jump",
     .layer                  = RENDER_TARGET_PLAYER_LAYER,
     .width                  = IDLE_HEIGHT * (4.1f/6.2f),
     .height                 = IDLE_HEIGHT,

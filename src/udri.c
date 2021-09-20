@@ -216,11 +216,11 @@ game_update_and_render(GameState *state, GameInput *input) {
   // update
   if (state->player.jump_state == PLAYER_JUMP_STATE_FINISHED_JUMP) {
     state->player.vel.y = PLAYER_JUMP_VELOCITY;
-    state->player.jump_state = PLAYER_JUMP_STATE_CAN_DOUBLEJUMP;
+    state->player.jump_state = PLAYER_JUMP_STATE_CAN_DOUBLE_JUMP;
     state->player.air_state = PLAYER_AIR_STATE_MIDAIR;
   }
 
-  if (state->player.jump_state == PLAYER_JUMP_STATE_DOUBLEJUMPED) {
+  if (state->player.jump_state == PLAYER_JUMP_STATE_DOUBLE_JUMPED) {
     state->player.vel.y = PLAYER_JUMP_VELOCITY;
     state->player.jump_state = PLAYER_JUMP_STATE_CANNOT_JUMP;
     state->player.air_state = PLAYER_AIR_STATE_MIDAIR;
@@ -257,8 +257,8 @@ game_update_and_render(GameState *state, GameInput *input) {
   if (input->pressed & UDRI_BUTTON_X) {
     if (state->player.jump_state == PLAYER_JUMP_STATE_CAN_JUMP) {
       state->player.jump_state = PLAYER_JUMP_STATE_STARTED_JUMP;
-    } else if (state->player.jump_state == PLAYER_JUMP_STATE_CAN_DOUBLEJUMP) {
-      state->player.jump_state = PLAYER_JUMP_STATE_DOUBLEJUMPED;
+    } else if (state->player.jump_state == PLAYER_JUMP_STATE_CAN_DOUBLE_JUMP) {
+      state->player.jump_state = PLAYER_JUMP_STATE_DOUBLE_JUMPED;
     }
   }
   
@@ -316,12 +316,12 @@ game_update_and_render(GameState *state, GameInput *input) {
       state->player.render_state = PLAYER_RENDER_STATE_LANDING;
     }
 
-    if (state->player.jump_state == PLAYER_JUMP_STATE_DOUBLEJUMPED) {
-      state->player.render_state = PLAYER_RENDER_STATE_DOUBLEJUMPING;
+    if (state->player.jump_state == PLAYER_JUMP_STATE_DOUBLE_JUMPED) {
+      state->player.render_state = PLAYER_RENDER_STATE_DOUBLE_JUMPING;
     }
   } break;
     
-  case PLAYER_RENDER_STATE_DOUBLEJUMPING: {
+  case PLAYER_RENDER_STATE_DOUBLE_JUMPING: {
     if (state->player.air_state == PLAYER_AIR_STATE_LANDING) {
       state->player.render_state = PLAYER_RENDER_STATE_LANDING;
     }
