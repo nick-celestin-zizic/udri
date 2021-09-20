@@ -1,5 +1,6 @@
 // modified version of https://github.com/tsoding/la/blob/master/lag.c
 
+#include "udri.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -166,7 +167,6 @@ void gen_vector_ctor(FILE *stream, Stmt stmt, size_t n, Type_Def type_def)
     fprintf(stream, "}\n");
   } else {
     assert(0 && "unreachable");
-    exit(69);
   }
 }
 
@@ -193,7 +193,6 @@ void gen_vector_scalar_ctor(FILE *stream, Stmt stmt, size_t n, Type_Def type_def
     fprintf(stream, "}\n");
   } else {
     assert(0 && "unreachable");
-    exit(69);
   }
 }
 
@@ -222,7 +221,6 @@ void gen_vector_op(FILE *stream, Stmt stmt, size_t n, Type_Def type_def, Op_Def 
     fprintf(stream, "}\n");
   } else {
     assert(0 && "unreachable");
-    exit(69);
   }
 }
 
@@ -409,7 +407,6 @@ void gen_vector_fun(FILE *stream, Stmt stmt, size_t n, Type type, Fun_Type fun)
     fprintf(stream, "}\n");
   } else {
     assert(0 && "unreachable");
-    exit(69);
   }
 }
 
@@ -431,7 +428,6 @@ void gen_lerp(FILE *stream, Stmt stmt, const char *name, const char *type)
     fprintf(stream, "}\n");
   } else {
     assert(0 && "unreachable");
-    exit(69);
   }
 }
 
@@ -454,7 +450,6 @@ void gen_min(FILE *stream, Stmt stmt, Type_Def type_def)
     fprintf(stream, "}\n");
   } else {
     assert(0 && "unreachable");
-    exit(69);
   }
 }
 
@@ -474,7 +469,6 @@ void gen_max(FILE *stream, Stmt stmt, Type_Def type_def)
     fprintf(stream, "}\n");
   } else {
     assert(0 && "unreachable");
-    exit(69);
   }
 }
 
@@ -503,7 +497,6 @@ void gen_clamp(FILE *stream, Stmt stmt, Type type, Fun_Def min_def, Fun_Def max_
     fprintf(stream, "}\n");
   } else {
     assert(0 && "unreachable");
-    exit(69);
   }
 }
 
@@ -531,7 +524,6 @@ void gen_vector_sqrlen(FILE *stream, Stmt stmt, size_t n, Type_Def type_def)
     fprintf(stream, "}\n");
   } else {
     assert(0 && "unreachable");
-    exit(69);
   }
 }
 
@@ -580,7 +572,6 @@ void gen_vector_len(FILE *stream, Stmt stmt, size_t n, Type_Def type_def, const 
     fprintf(stream, "}\n");
   } else {
     assert(0 && "unreachable");
-    exit(69);
   }
 }
 
@@ -613,7 +604,6 @@ void gen_vector_convert(FILE *stream, Stmt stmt,
     fprintf(stream, "}\n");
   } else {
     assert(0 && "unreachable");
-    exit(69);
   }
 }
 
@@ -623,7 +613,7 @@ void gen_vector_convert(FILE *stream, Stmt stmt,
 // Maybe only the same size casting?
 // TODO: Would be interesting to introduce some sort of swizzling, like: V4f v2f_xxyy(V2f v)
 
-int main()
+int main ()
 {
   FILE *stream;
 
@@ -632,7 +622,7 @@ int main()
     stream = fopen("./src/generated/udri_la.h", "w");
     if(stream == NULL) {
       fprintf(stderr, "can't create udri_la.h\n");
-      exit(1);
+      return 1;
     }
       
     fprintf(stream, "#ifndef LA_H_\n");
@@ -704,7 +694,7 @@ int main()
     stream = fopen("./src/generated/udri_la.c", "w");
     if(stream == NULL) {
       fprintf(stderr, "can't create udri_la.c\n");
-      exit(1);
+      return 1;
     }
     
     fprintf(stream, "#include \"udri_la.h\"\n");

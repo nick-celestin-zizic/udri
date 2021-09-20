@@ -3,7 +3,7 @@
 
 // TODO factor out platform specific stuff when I add more platform layers
 #define PLATFORM "linux"
-#define CC "gcc"
+#define CC "cc"
 #define DEBUG_FLAGS "-g"
 #define LIBS "-lX11", "-lGL", "-lGLU", "-lGLEW", "-lm"
 #define RUN_IN_TERM CMD("st", "-e", EXE)
@@ -19,7 +19,8 @@
 #define EXE PATH("bin", EXE_NAME)
 #define ENTRY_POINT PATH("src", CONCAT(EXE_NAME, ".c"))
 
-void usage (FILE *out) {
+static inline void
+usage (FILE *out) {
   fprintf(out,
           "usage: ./build [help|run|debug|profile|term|release|codegen]\n"
           "  help    - prints this message and exits\n"
@@ -31,12 +32,16 @@ void usage (FILE *out) {
           "  codegen - generate code and don't compile/run main program.\n");
 }
 
-void generate_code () {
+
+// TODO run this code within the metaprogram instead of spawning a new proccess but we'll need to modify GO_REBUILD_URSELF because the default behavior is to basically remove the `build` binary if compilation fails which is not very pog
+static inline void
+generate_code () {
   CMD(CC, PATH("src", "udri_generate_la.c"), "-o", PATH("bin", "lagen"));
   CMD(PATH("bin", "lagen"));
 }
 
-int main (int argc, char **argv) {
+int
+main (int argc, char **argv) {
   GO_REBUILD_URSELF(argc, argv);
   
   generate_code();

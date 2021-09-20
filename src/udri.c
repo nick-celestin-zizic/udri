@@ -215,15 +215,15 @@ game_update_and_render(GameState *state, GameInput *input) {
   
   // update
   if (state->player.jump_state == PLAYER_JUMP_STATE_FINISHED_JUMP) {
-    state->player.vel.y = PLAYER_JUMP_VELOCITY;
     state->player.jump_state = PLAYER_JUMP_STATE_CAN_DOUBLE_JUMP;
-    state->player.air_state = PLAYER_AIR_STATE_MIDAIR;
+    state->player.vel.y      = PLAYER_JUMP_VELOCITY;
+    state->player.air_state  = PLAYER_AIR_STATE_MIDAIR;
   }
 
   if (state->player.jump_state == PLAYER_JUMP_STATE_DOUBLE_JUMPED) {
-    state->player.vel.y = PLAYER_JUMP_VELOCITY;
     state->player.jump_state = PLAYER_JUMP_STATE_CANNOT_JUMP;
-    state->player.air_state = PLAYER_AIR_STATE_MIDAIR;
+    state->player.vel.y      = PLAYER_JUMP_VELOCITY;
+    state->player.air_state  = PLAYER_AIR_STATE_MIDAIR;
   }
    
   const f32 player_new_y =
@@ -242,10 +242,7 @@ game_update_and_render(GameState *state, GameInput *input) {
     state->player.jump_state = PLAYER_JUMP_STATE_CAN_JUMP;
     if (state->player.air_state == PLAYER_AIR_STATE_MIDAIR) {
       state->player.air_state = PLAYER_AIR_STATE_LANDING;
-    } else {
-      
     }
-    
   } else {
     state->player.pos.y = player_new_y;
   }
@@ -271,14 +268,6 @@ game_update_and_render(GameState *state, GameInput *input) {
     state->player.turned_left = false;
     state->player.vel.x = +PLAYER_SPEED;
   }
-
-  if (input->held & UDRI_BUTTON_RIGHT && input->held & UDRI_BUTTON_LEFT) {
-    state->player.vel.x = 0.0f;
-  }
-  
-  if (input->pressed & UDRI_BUTTON_DOWN) {
-    state->player.vel.y = -PLAYER_JUMP_VELOCITY;
-  }
       
   if (input->released & UDRI_BUTTON_LEFT) {
     //state->player.vel.x += PLAYER_SPEED;
@@ -288,6 +277,10 @@ game_update_and_render(GameState *state, GameInput *input) {
   if (input->released & UDRI_BUTTON_RIGHT) {
     //state->player.vel.x -= PLAYER_SPEED;
     if (state->player.vel.x > 0) state->player.vel.x = 0;
+  }
+
+  if (input->pressed & UDRI_BUTTON_DOWN) {
+    state->player.vel.y = -PLAYER_JUMP_VELOCITY;
   }
       
 
