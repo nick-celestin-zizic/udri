@@ -133,6 +133,7 @@ typedef struct {
 
 #define IDLE_WIDTH 1.0f
 #define IDLE_HEIGHT 1.5f
+// TODO generate these at compile time and maybe even load the bitmaps into a header or smth
 static const RenderTarget player_renders[PLAYER_RENDER_STATE_COUNT] = {
   [PLAYER_RENDER_STATE_IDLE] = {
     .name                   = "falcon/idle",

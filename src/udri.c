@@ -240,7 +240,6 @@ game_update_and_render(GameState *state, GameInput *input) {
     state->player.pos.y  = bottom;
 
     state->player.jump_state = PLAYER_JUMP_STATE_CAN_JUMP;
-    printf("%d\n", state->player.air_state);
     if (state->player.air_state == PLAYER_AIR_STATE_MIDAIR) {
       state->player.air_state = PLAYER_AIR_STATE_LANDING;
     } else {
@@ -249,12 +248,6 @@ game_update_and_render(GameState *state, GameInput *input) {
     
   } else {
     state->player.pos.y = player_new_y;
-    #if 0
-    if (!state->player.air_state == PLAYER_AIR_STATE_GROUNDED)
-      state->player.was_grounded = false;
-    else
-      state->player.is_grounded = false;
-    #endif
   }
   
   // proccess input
