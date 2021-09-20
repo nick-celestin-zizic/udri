@@ -89,7 +89,7 @@ typedef struct {
   RenderTarget render;
 } Orbs;
 
-// TODO have some sort of hotloaded file or smthn
+
 typedef enum {
   PLAYER_RENDER_STATE_IDLE = 0,
   PLAYER_RENDER_STATE_RUNNING,
@@ -108,7 +108,15 @@ typedef enum {
   PLAYER_JUMP_STATE_CANNOT_JUMP,
 } PlayerJumpState;
 
-#define PLAYER_SPEED          5.0f
+typedef enum {
+  PLAYER_AIR_STATE_GROUNDED = 0, // is on the ground
+  PLAYER_AIR_STATE_MIDAIR,
+  PLAYER_AIR_STATE_LANDING, // just hit the ground
+  PLAYER_AIR_STATE_COUNT,
+} PlayerAirState;
+
+// TODO have some sort of hotloaded file or smthn
+#define PLAYER_SPEED          6.5f
 #define PLAYER_JUMP_HEIGHT    1.0f
 #define PLAYER_NUM_JUMPS      2
 #define PLAYER_JUMP_DURATION  0.25f
@@ -117,11 +125,8 @@ typedef enum {
 typedef struct {
   vec2 pos, vel;
   bool turned_left;
-  // TODO make a PlayerAirState or something like that (bunch of bools == torture).
-  bool is_grounded;
-  bool was_grounded;
-  bool is_landing;
-  PlayerJumpState jump_state;
+  PlayerAirState    air_state;
+  PlayerJumpState   jump_state;
   PlayerRenderState render_state;
   RenderTarget renders[PLAYER_RENDER_STATE_COUNT];
 } Player;
@@ -145,7 +150,7 @@ static const RenderTarget player_renders[PLAYER_RENDER_STATE_COUNT] = {
     .width                  = IDLE_HEIGHT,
     .height                 = IDLE_HEIGHT,
     .num_bmps               = 8,
-    .frame_times            = {4},
+    .frame_times            = {3},
     .num_unique_frame_times = 1,
     .looped                 = true,
   },
@@ -165,7 +170,7 @@ static const RenderTarget player_renders[PLAYER_RENDER_STATE_COUNT] = {
     .width                  = IDLE_HEIGHT * (4.1f/6.2f),
     .height                 = IDLE_HEIGHT,
     .num_bmps               = 3,
-    .frame_times            = {4},
+    .frame_times            = {3},
     .num_unique_frame_times = 1,
     .looped                 = true,
   },

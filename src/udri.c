@@ -212,15 +212,18 @@ game_update_and_render(GameState *state, GameInput *input) {
       state->orbs.pos[i].y = (rand() % (upper_y - lower_y + 1)) + lower_y;
     }
   }
+  
   // update
   if (state->player.jump_state == PLAYER_JUMP_STATE_FINISHED_JUMP) {
     state->player.vel.y = PLAYER_JUMP_VELOCITY;
     state->player.jump_state = PLAYER_JUMP_STATE_CAN_DOUBLEJUMP;
+    state->player.air_state = PLAYER_AIR_STATE_MIDAIR;
   }
 
   if (state->player.jump_state == PLAYER_JUMP_STATE_DOUBLEJUMPED) {
     state->player.vel.y = PLAYER_JUMP_VELOCITY;
     state->player.jump_state = PLAYER_JUMP_STATE_CANNOT_JUMP;
+    state->player.air_state = PLAYER_AIR_STATE_MIDAIR;
   }
    
   const f32 player_new_y =
@@ -231,25 +234,27 @@ game_update_and_render(GameState *state, GameInput *input) {
   // TODO actual collision detection and don't use render coordinates
   const f32 bottom =
     (state->player.renders[state->player.render_state].height - ASPECT_HEIGHT) * 0.5;
+  
   if (player_new_y < bottom) {
     state->player.vel.y  = 0;
     state->player.pos.y  = bottom;
 
     state->player.jump_state = PLAYER_JUMP_STATE_CAN_JUMP;
-
-    if (state->player.is_grounded) {
-      state->player.was_grounded = true;
+    printf("%d\n", state->player.air_state);
+    if (state->player.air_state == PLAYER_AIR_STATE_MIDAIR) {
+      state->player.air_state = PLAYER_AIR_STATE_LANDING;
     } else {
-      state->player.is_grounded = true;
-      state->player.is_landing = true;
+      
     }
     
   } else {
     state->player.pos.y = player_new_y;
-    if (!state->player.is_grounded)
+    #if 0
+    if (!state->player.air_state == PLAYER_AIR_STATE_GROUNDED)
       state->player.was_grounded = false;
     else
       state->player.is_grounded = false;
+    #endif
   }
   
   // proccess input
@@ -286,7 +291,7 @@ game_update_and_render(GameState *state, GameInput *input) {
     //state->player.vel.x += PLAYER_SPEED;
     if (state->player.vel.x < 0) state->player.vel.x = 0;
   }
-      
+  
   if (input->released & UDRI_BUTTON_RIGHT) {
     //state->player.vel.x -= PLAYER_SPEED;
     if (state->player.vel.x > 0) state->player.vel.x = 0;
@@ -294,8 +299,6 @@ game_update_and_render(GameState *state, GameInput *input) {
       
 
   // render
-
-  // TODO clean this up this is a nightmare maybe have it be a switch on the current state and do the animations from there
   switch (state->player.render_state) {
   case PLAYER_RENDER_STATE_IDLE: {
     if (state->player.jump_state == PLAYER_JUMP_STATE_STARTED_JUMP) {
@@ -316,8 +319,7 @@ game_update_and_render(GameState *state, GameInput *input) {
   case PLAYER_RENDER_STATE_JUMPING: {
     if (state->player.renders[PLAYER_RENDER_STATE_JUMPING].current_bmp_idx == 1) {
       state->player.jump_state = PLAYER_JUMP_STATE_FINISHED_JUMP;
-    } else if (!state->player.was_grounded && state->player.is_grounded) {
-      state->player.is_landing = true;
+    } else if (state->player.air_state == PLAYER_AIR_STATE_LANDING) {
       state->player.render_state = PLAYER_RENDER_STATE_LANDING;
     }
 
@@ -327,15 +329,15 @@ game_update_and_render(GameState *state, GameInput *input) {
   } break;
     
   case PLAYER_RENDER_STATE_DOUBLEJUMPING: {
-    if (!state->player.was_grounded && state->player.is_grounded) {
-      state->player.is_landing = true;
+    if (state->player.air_state == PLAYER_AIR_STATE_LANDING) {
       state->player.render_state = PLAYER_RENDER_STATE_LANDING;
     }
   } break;
 
   case PLAYER_RENDER_STATE_LANDING: {
     if (animation_is_finished(&state->player.renders[PLAYER_RENDER_STATE_LANDING])) {
-      state->player.is_landing = false;
+      state->player.air_state = PLAYER_AIR_STATE_GROUNDED;
+      //state->player.is_landing = false;
       reset_animation(&state->player.renders[PLAYER_RENDER_STATE_JUMPING]);
       reset_animation(&state->player.renders[PLAYER_RENDER_STATE_LANDING]);
       state->player.render_state = (state->player.vel.x == 0) ?
