@@ -337,7 +337,6 @@ game_update_and_render(GameState *state, GameInput *input) {
   case PLAYER_RENDER_STATE_LANDING: {
     if (animation_is_finished(&state->player.renders[PLAYER_RENDER_STATE_LANDING])) {
       state->player.air_state = PLAYER_AIR_STATE_GROUNDED;
-      //state->player.is_landing = false;
       reset_animation(&state->player.renders[PLAYER_RENDER_STATE_JUMPING]);
       reset_animation(&state->player.renders[PLAYER_RENDER_STATE_LANDING]);
       state->player.render_state = (state->player.vel.x == 0) ?
@@ -349,33 +348,6 @@ game_update_and_render(GameState *state, GameInput *input) {
     assert(false, "unreachable");
   } break;
   }
-  
-#if 0
-  if (state->player.is_grounded) {
-    if (state->player.was_grounded) {
-      if (!state->player.is_landing) {
-        if (state->player.started_jumping) {
-          state->player.render_state = PLAYER_RENDER_STATE_JUMPING;
-          if (state->player.renders[PLAYER_RENDER_STATE_JUMPING].current_bmp_idx == 1) {
-            state->player.finished_jumping = true;
-          }
-        } else {
-          state->player.render_state = (state->player.vel.x == 0) ?
-            PLAYER_RENDER_STATE_IDLE : PLAYER_RENDER_STATE_RUNNING;
-        }
-      } else if (animation_is_finished(&state->player.renders[PLAYER_RENDER_STATE_LANDING])) {
-        reset_animation(&state->player.renders[PLAYER_RENDER_STATE_LANDING]);
-        state->player.is_landing = false;
-      }
-    } else {
-      reset_animation(&state->player.renders[PLAYER_RENDER_STATE_JUMPING]);
-      state->player.is_landing = true;
-      state->player.render_state = PLAYER_RENDER_STATE_LANDING;
-    }
-  } else {
-    state->player.render_state = PLAYER_RENDER_STATE_JUMPING;
-  }
-#endif
   
   if (state->player.renders[state->player.render_state].looped)
     loop_animation(&state->player.renders[state->player.render_state]);
