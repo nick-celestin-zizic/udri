@@ -238,13 +238,15 @@ game_update_and_render(GameState *state, GameInput *input) {
   if (player_new_y < bottom) {
     state->player.vel.y  = 0;
     state->player.pos.y  = bottom;
-
-    state->player.jump_state = PLAYER_JUMP_STATE_CAN_JUMP;
-    if (state->player.air_state == PLAYER_AIR_STATE_MIDAIR) {
+    
+    if (state->player.air_state == PLAYER_AIR_STATE_MIDAIR &&
+        state->player.jump_state != PLAYER_JUMP_STATE_FINISHED_JUMP) {
       state->player.air_state = PLAYER_AIR_STATE_LANDING;
     }
+    state->player.jump_state = PLAYER_JUMP_STATE_CAN_JUMP;
   } else {
     state->player.pos.y = player_new_y;
+    state->player.air_state = PLAYER_AIR_STATE_MIDAIR;
   }
   
   // proccess input
@@ -287,7 +289,11 @@ game_update_and_render(GameState *state, GameInput *input) {
   // render
   switch (state->player.render_state) {
   case PLAYER_RENDER_STATE_IDLE: {
-    if (state->player.jump_state == PLAYER_JUMP_STATE_STARTED_JUMP) {
+    if (state->player.air_state == PLAYER_AIR_STATE_MIDAIR) {
+      // NOTE this is the last animation of the jump which is the falling animation
+      state->player.renders[PLAYER_RENDER_STATE_JUMPING].current_bmp_idx = 2;
+      state->player.render_state = PLAYER_RENDER_STATE_JUMPING;
+    } else if (state->player.jump_state == PLAYER_JUMP_STATE_STARTED_JUMP) {
       state->player.render_state = PLAYER_RENDER_STATE_JUMPING;
     } else if (state->player.vel.x != 0) {
       state->player.render_state = PLAYER_RENDER_STATE_RUNNING;
