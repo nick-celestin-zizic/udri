@@ -33,7 +33,7 @@ usage (FILE *out) {
 }
 
 
-// TODO run this code within the metaprogram instead of spawning a new proccess but we'll need to modify GO_REBUILD_URSELF because the default behavior is to basically remove the `build` binary if compilation fails which is not very pog
+// TODO run this code within the metaprogram instead of spawning a new proccess but we'll need to modify GO_REBUILD_URSELF because the default behavior is to basically remove the `build` binary if compilation fails which is not very pog. Maybe just have a codegen.c that does all the code generation in a seperate proccess
 static inline void
 generate_code () {
   CMD(CC, PATH("src", "udri_generate_la.c"), "-o", PATH("bin", "lagen"));
