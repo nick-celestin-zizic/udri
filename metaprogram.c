@@ -4,6 +4,7 @@
 // TODO factor out platform specific stuff when I add more platform layers
 #define PLATFORM "linux"
 #define CC "cc"
+#define METACC CC
 #define DEBUG_FLAGS "-g"
 #define LIBS "-lX11", "-lGL", "-lGLU", "-lGLEW", "-lm"
 #define RUN_IN_TERM CMD("st", "-e", EXE)
@@ -36,7 +37,7 @@ usage (FILE *out) {
 // TODO run this code within the metaprogram instead of spawning a new proccess but we'll need to modify GO_REBUILD_URSELF because the default behavior is to basically remove the `build` binary if compilation fails which is not very pog. Maybe just have a codegen.c that does all the code generation in a seperate proccess
 static inline void
 generate_code () {
-  CMD(CC, PATH("src", "udri_generate_la.c"), "-o", PATH("bin", "lagen"));
+  CMD(METACC, PATH("src", "udri_generate_la.c"), "-o", PATH("bin", "lagen"));
   CMD(PATH("bin", "lagen"));
 }
 

@@ -331,6 +331,7 @@ game_update_and_render(GameState *state, GameInput *input) {
       state->player.air_state = PLAYER_AIR_STATE_GROUNDED;
       reset_animation(&state->player.renders[PLAYER_RENDER_STATE_JUMPING]);
       reset_animation(&state->player.renders[PLAYER_RENDER_STATE_LANDING]);
+      reset_animation(&state->player.renders[PLAYER_RENDER_STATE_DOUBLE_JUMPING]);
       state->player.render_state = (state->player.vel.x == 0) ?
         PLAYER_RENDER_STATE_IDLE : PLAYER_RENDER_STATE_RUNNING;
     }
@@ -348,7 +349,7 @@ game_update_and_render(GameState *state, GameInput *input) {
   
   loop_animation(&state->orbs.render);
   
-  const vec4 border_color = v4(0.0f, 0.0f, 0.0f, 1.0);
+  const vec4 border_color = v4(0.0f, 0.0f, 0.0f, 1.0f);
   glClearColor(border_color.r, border_color.g, border_color.b, border_color.a);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glViewport(state->screen.x_origin, state->screen.y_origin, state->screen.width, state->screen.height);

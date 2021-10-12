@@ -132,6 +132,7 @@ typedef struct {
   RenderTarget renders[PLAYER_RENDER_STATE_COUNT];
 } Player;
 
+#define BASE_RATIO (1.0f/1.5f)
 #define IDLE_WIDTH 1.0f
 #define IDLE_HEIGHT 1.5f
 
@@ -173,10 +174,10 @@ static const RenderTarget player_renders[PLAYER_RENDER_STATE_COUNT] = {
     .layer                  = RENDER_TARGET_PLAYER_LAYER,
     .width                  = IDLE_HEIGHT * (4.1f/6.2f),
     .height                 = IDLE_HEIGHT,
-    .num_bmps               = 3,
-    .frame_times            = {3},
+    .num_bmps               = 5,
+    .frame_times            = {2},
     .num_unique_frame_times = 1,
-    .looped                 = true,
+    .looped                 = false,
   },
   [PLAYER_RENDER_STATE_LANDING] = {
     .name                   = "falcon/land",
